@@ -1,13 +1,26 @@
 package com.gitops.app;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.ApplicationContext;
+
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 @SpringBootTest
 class AppApplicationTests {
 
-	@Test
-	void contextLoads() {
-	}
+    @Autowired
+    private ApplicationContext context;
+
+    @Test
+    void contextLoads() {
+        assertNotNull(context, "Application context should load successfully");
+    }
+
+    @Test
+    void apiControllerBeanExists() {
+        assertNotNull(context.getBean(ApiController.class), "ApiController bean should be registered");
+    }
 
 }

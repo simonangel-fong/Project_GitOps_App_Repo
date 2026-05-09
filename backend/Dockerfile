@@ -1,13 +1,15 @@
-FROM eclipse-temurin:25-jdk AS builder
+FROM eclipse-temurin:25.0.3_9-jdk-ubi10-minimal@sha256:69dacb80fd8ecdcda554d0e80e4da22e5bf7737981b2a0aea26a135552d8abe2 AS builder
 WORKDIR /app
-COPY app/mvnw app/pom.xml ./
+COPY app/mvnw app/pom.xml app/checkstyle.xml app/dependency-check-suppressions.xml ./
 COPY app/.mvn .mvn
 RUN chmod +x mvnw && ./mvnw dependency:go-offline -q
 COPY app/src src
-RUN ./mvnw package -DskipTests -q
+RUN ./mvnw package -DskipTests -q && mv target/*.jar target/app.jar
 
-FROM eclipse-temurin:25-jre
+FROM eclipse-temurin:25.0.3_9-jre-ubi10-minimal@sha256:f03be975d9c9198ef47f0abcf9ac9f12e803d0243c604732f35d7676ee1ffe68
 WORKDIR /app
-COPY --from=builder /app/target/app-0.0.1-SNAPSHOT.jar app.jar
+COPY --from=builder /app/target/app.jar app.jar
+RUN groupadd --system appgroup && useradd --system --gid appgroup appuser
+USER appuser
 EXPOSE 8080
 ENTRYPOINT ["java", "-jar", "app.jar"]

@@ -21,6 +21,7 @@
     - [Step 3 — Create the `/version` Endpoint](#step-3--create-the-version-endpoint)
     - [Step 4 — Create the Docker Image](#step-4--create-the-docker-image)
   - [Acceptance Criteria](#acceptance-criteria)
+  - [Code Validation Check](#code-validation-check)
 
 ---
 
@@ -215,3 +216,20 @@ curl http://localhost:8080/version
 | 3   | `GET /version` reflects a custom `APP_VERSION` at runtime                             | Done   |
 | 4   | Application starts on port `8080`                                                     | Done   |
 | 5   | Docker image builds and container runs successfully                                   | Done   |
+
+---
+
+## Code Validation Check
+
+```sh
+cd backend/app
+
+# coding standards and style rules
+mvn checkstyle:check
+# Security Scanning
+mvn dependency-check:check 
+# unit test
+mvn test
+# image-scan
+trivy image gitops-backend
+```

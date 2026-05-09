@@ -1,168 +1,153 @@
 # CI Pipeline Design
 
-## Overview
+## Group 1: PR Validation (feature/* → main)
 
-This repository is the **source code repo**. A separate **config repo** holds GitOps deployment manifests. The CI pipeline gates code quality, builds and publishes Docker images, and opens a PR in the config repo to trigger deployment via ArgoCD/Flux.
+Triggered on pull request and push to feature branches. Purpose: validate changes before merge.
 
----
+```txt
+Pipeline ci-backend-check
+trigger:
+    pull_request
+        from: feature/* → main
+        paths: backend/
+    push
+        feature/*
+        paths: backend/
+jobs:
+    lint (needs: -)
+        checkout code
+        mvn checkstyle:check
 
-## Architecture
+    dependency-scan (needs: lint)
+        checkout code
+        mvn dependency-check:check          # OWASP Dependency Check, fail on HIGH/CRITICAL
 
-```
-Dev:     feature/* → PR → main         (daily work)
-CI:      Pipeline 3 gates the PR       (automated)
-CI:      Pipeline 1 smoke-checks main  (automated)
-Lead:    reviews main, decides to release
-Lead:    git tag v1.2.3 && git push origin v1.2.3
-CI:      Pipeline 2 fires              (automated)
-CI:      opens PR in config repo       (automated)
-Lead:    reviews + merges config PR    (human gate before deploy)
-ArgoCD:  detects merge → deploys       (automated)
-```
+    unit-test (needs: dependency-scan)
+        checkout code
+        mvn test                            # includes jacoco coverage threshold check
 
----
+    maven-build (needs: unit-test)
+        mvn package -DskipTests
 
-## Branching & Release Flow
+    image-build (needs: maven-build)        # build only, no push
+        docker login registry               # credentials from CI secrets
+        docker build -t registry/backend:pr-<pr-number> ./backend
 
-```
-feature/* (daily dev work)
-    ↓  open Pull Request → main
-    ↓  Pipeline 3 triggers (CI gate)
-    ↓  checks pass + reviewer approves
-   main  ←─── protected, no direct push
-    ↓  Pipeline 1 triggers (post-merge smoke check)
-    ↓
-Lead tags: git tag v1.2.3 && git push origin v1.2.3
-    ↓  Pipeline 2 triggers (release)
-    ↓
-config-repo: PR opened with updated image tags
-    ↓  Lead reviews + merges
-    ↓
-ArgoCD detects merge → deploys to production
-```
+    image-scan (needs: image-build)
+        trivy image registry/backend:pr-<pr-number>
+        fail if HIGH/CRITICAL vulnerabilities found
 
----
+    notify (on: failure, always)
+        notify Slack/email
+        message: pipeline, job, branch, commit <sha>, link to run
 
-## Pipeline Summary
 
-| Pipeline       | Trigger             | Jobs                        | Purpose                              |
-| -------------- | ------------------- | --------------------------- | ------------------------------------ |
-| **Pipeline 3** | PR targeting `main` | `ci-backend`, `ci-frontend` | Gate: block bad code from merging    |
-| **Pipeline 1** | Push to `main`      | `ci-backend`, `ci-frontend` | Smoke check post-merge               |
-| **Pipeline 2** | Push `v*.*.*` tag   | `release`, `update-config`  | Build, publish image, open config PR |
+Pipeline ci-frontend-check
+trigger:
+    pull_request
+        from: feature/* → main
+        paths: frontend/
+    push
+        feature/*
+        paths: frontend/
+jobs:
+    lint (needs: -)
+        checkout code
+        npm ci
+        npm run lint                        # ESLint
 
-> Pipeline 1 and Pipeline 3 share the same jobs and can live in a single workflow file with both triggers.
+    dependency-scan (needs: lint)
+        npm audit --audit-level=high        # fail on HIGH/CRITICAL
 
----
+    unit-test (needs: dependency-scan)
+        npm test                            # Vitest with coverage threshold
 
-## Pipeline 1 & 3 — CI Jobs
+    npm-build (needs: unit-test)
+        npm run build
 
-### `ci-backend` (Spring Boot / Java 25)
+    image-build (needs: npm-build)          # build only, no push
+        docker login registry               # credentials from CI secrets
+        docker build -t registry/frontend:pr-<pr-number> ./frontend
 
-| #   | Step          | Tool                           |
-| --- | ------------- | ------------------------------ |
-| 1   | Checkout      | `actions/checkout`             |
-| 2   | Setup Java 25 | `actions/setup-java` (temurin) |
-| 3   | Cache Maven   | `actions/cache` (`~/.m2`)      |
-| 4   | Run tests     | `./mvnw test`                  |
-| 5   | Build JAR     | `./mvnw package -DskipTests`   |
+    image-scan (needs: image-build)
+        trivy image registry/frontend:pr-<pr-number>
+        fail if HIGH/CRITICAL vulnerabilities found
 
-### `ci-frontend` (React / Vite / Node 22)
-
-| #   | Step          | Tool                       |
-| --- | ------------- | -------------------------- |
-| 1   | Checkout      | `actions/checkout`         |
-| 2   | Setup Node 22 | `actions/setup-node`       |
-| 3   | Cache npm     | `actions/cache` (`~/.npm`) |
-| 4   | Install deps  | `npm ci`                   |
-| 5   | Lint          | `npm run lint` (ESLint)    |
-| 6   | Unit tests    | `npm test` (Vitest)        |
-| 7   | Build         | `npm run build`            |
-
----
-
-## Pipeline 2 — Release Jobs
-
-### `release`
-
-| #   | Step                        | Tool / Notes                               |
-| --- | --------------------------- | ------------------------------------------ |
-| 1   | Checkout                    | `actions/checkout`                         |
-| 2   | Extract version from tag    | `${GITHUB_REF_NAME#v}` → `VERSION` env var |
-| 3   | Setup Java 25               | `actions/setup-java`                       |
-| 4   | Run backend tests           | `./mvnw test`                              |
-| 5   | Build backend JAR           | `./mvnw package -DskipTests`               |
-| 6   | Setup Node 22               | `actions/setup-node`                       |
-| 7   | Run frontend tests          | `npm test` (Vitest)                        |
-| 8   | Build frontend              | `npm run build`                            |
-| 9   | Docker login                | `docker/login-action`                      |
-| 10  | Build & push backend image  | tags `:VERSION`, `:latest`                 |
-| 11  | Build & push frontend image | tags `:VERSION`, `:latest`                 |
-
-### `update-config` (depends on `release`)
-
-| #   | Step                   | Tool / Notes                                   |
-| --- | ---------------------- | ---------------------------------------------- |
-| 12  | Checkout config repo   | `actions/checkout` + `CONFIG_REPO_PAT`         |
-| 13  | Patch image tags       | `yq` — set backend + frontend tag to `VERSION` |
-| 14  | Open PR in config repo | `peter-evans/create-pull-request`              |
-
-### Job Dependency
-
-```
-release (test → build → push image)
-    ↓
-update-config (open PR in config repo)
+    notify (on: failure, always)
+        notify Slack/email
+        message: pipeline, job, branch, commit <sha>, link to run
 ```
 
----
+## Group 2: Release (push to main)
 
-## Branch & Tag Protection
+Triggered on push to main (i.e., PR merged). Purpose: build, smoke test, push images, and promote to config repo.
 
-### Branch Protection (`main`)
+```txt
+Pipeline ci-build
+trigger:
+    push
+        branch: main
+        paths: backend/, frontend/
 
-| Rule                              | Setting                               |
-| --------------------------------- | ------------------------------------- |
-| Require PR before merging         | ✅ enabled — no direct push to `main` |
-| Require status checks to pass     | `ci-backend`, `ci-frontend`           |
-| Require branches to be up to date | ✅ enabled                            |
-| Require approvals                 | 1 reviewer minimum                    |
-| Dismiss stale reviews on new push | ✅ enabled                            |
+jobs:
+    detect-changes                          # outputs: backend_changed, frontend_changed
+        checkout code
+        git diff --name-only HEAD~1 HEAD -- backend/  → backend_changed
+        git diff --name-only HEAD~1 HEAD -- frontend/ → frontend_changed
 
-### Tag Protection (`v*.*.*`)
+    backend-build (needs: detect-changes)
+        checkout code
+        mvn test                            # includes jacoco coverage threshold check
+        mvn package -DskipTests
+        docker login registry               # credentials from CI secrets
+        docker build -t registry/backend:<git-sha> ./backend
+        trivy image registry/backend:<git-sha>
+        fail if HIGH/CRITICAL vulnerabilities found
 
-Restrict tag creation to **admins / tech lead only** via Settings → Rules → Tag protection.
+    frontend-build (needs: detect-changes)
+        checkout code
+        npm ci
+        npm test                            # Vitest with coverage threshold
+        npm run build
+        docker login registry               # credentials from CI secrets
+        docker build -t registry/frontend:<git-sha> ./frontend
+        trivy image registry/frontend:<git-sha>
+        fail if HIGH/CRITICAL vulnerabilities found
 
-This ensures the release decision is made by the lead, not individual developers.
+    smoke-test (needs: backend-build, frontend-build)
+        docker login registry
+        APP_VERSION=<git-sha> docker compose up --wait   # waits for health checks
+        run smoke tests (e.g. curl /health, HTTP assertions)
+        docker compose down                              # always runs, even on failure
 
----
+    backend-push (needs: smoke-test)
+        if: backend_changed == true
+        docker login registry
+        docker push registry/backend:<git-sha>
+        docker tag  registry/backend:<git-sha> registry/backend:latest
+        docker push registry/backend:latest
 
-## Who Does What
+    frontend-push (needs: smoke-test)
+        if: frontend_changed == true
+        docker login registry
+        docker push registry/frontend:<git-sha>
+        docker tag  registry/frontend:<git-sha> registry/frontend:latest
+        docker push registry/frontend:latest
 
-| Actor                 | Responsibility                                              |
-| --------------------- | ----------------------------------------------------------- |
-| **Developer**         | Push to `feature/*`, open PR to `main`                      |
-| **Reviewer**          | Approve PR after CI passes                                  |
-| **Tech Lead / Admin** | Push release tag `v1.2.3` when `main` is stable             |
-| **Tech Lead / Admin** | Review and merge the config repo PR to trigger deploy       |
-| **CI (automated)**    | All testing, building, image publishing, config PR creation |
-| **ArgoCD / Flux**     | Detect config repo merge, deploy to production              |
+    config-repo-pr (needs: backend-push, frontend-push)
+        git clone config-repo (using deploy token / SSH key)
+        git checkout -b release/<git-sha>
+        yq update backend image tag  (if backend_changed)
+        yq update frontend image tag (if frontend_changed)
+        git commit -m "release: update image tags to <git-sha>"
+        git push origin release/<git-sha>
+        gh pr create --title "release: <git-sha>" --base main
 
----
+    notify (on: failure, always)
+        notify Slack/email
+        message: pipeline, job, branch, commit <sha>, link to run
 
-## Secrets Required
-
-| Secret              | Used in                         | Purpose                     |
-| ------------------- | ------------------------------- | --------------------------- |
-| `REGISTRY_USERNAME` | Pipeline 2                      | Docker registry login       |
-| `REGISTRY_PASSWORD` | Pipeline 2                      | Docker registry login       |
-| `CONFIG_REPO_PAT`   | Pipeline 2, `update-config` job | Write access to config repo |
-
----
-
-## Versioning
-
-- Format: **SemVer** — `v1.2.3` (tag), `1.2.3` (image tag, `APP_VERSION`)
-- Tags are created **manually by the tech lead** after confirming `main` is stable
-- Docker images are pushed with two tags: `:1.2.3` (immutable) and `:latest`
-- The `v` prefix is stripped in CI: `v1.2.3` → `1.2.3` for use as `APP_VERSION`
+    notify (on: success of config-repo-pr)
+        notify Slack/email
+        message: release <git-sha> ready for review — link to config repo PR
+```
