@@ -169,6 +169,10 @@ Expected default response:
 }
 ```
 
+```sh
+cd backend/app && mvn test
+```
+
 - [x] Endpoint created and returns correct JSON
 - [x] Version is read from `APP_VERSION`, defaulting to `0.1.0`
 
