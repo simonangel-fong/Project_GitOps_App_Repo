@@ -33,7 +33,9 @@ jobs:
 
       - name: Checkstyle
         working-directory: backend/app
-        run: ./mvnw checkstyle:check
+        run: |
+          chmod +x mvnw
+          ./mvnw checkstyle:check
 
   dependency-scan:
     runs-on: ubuntu-latest
@@ -86,7 +88,9 @@ jobs:
 
       - name: Unit tests with coverage
         working-directory: backend/app
-        run: ./mvnw test
+        run: |
+          chmod +x mvnw
+          ./mvnw test
 
   maven-build:
     runs-on: ubuntu-latest
@@ -108,7 +112,9 @@ jobs:
 
       - name: Package
         working-directory: backend/app
-        run: ./mvnw package -DskipTests
+        run: |
+          chmod +x mvnw
+          ./mvnw package -DskipTests
 
       - name: Upload JAR
         uses: actions/upload-artifact@v7.0.1
