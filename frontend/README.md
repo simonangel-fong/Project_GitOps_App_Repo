@@ -22,6 +22,7 @@
     - [Step 4 — Create the Docker Image](#step-4--create-the-docker-image)
     - [Step 5 — Run with Docker Compose](#step-5--run-with-docker-compose)
   - [Acceptance Criteria](#acceptance-criteria)
+  - [Test](#test)
 
 ---
 
@@ -232,3 +233,15 @@ APP_VERSION=1.2.3 docker compose up --build
 | 3   | Version is fetched from `GET /version` and rendered in the title       | Done   |
 | 4   | Docker image builds and container serves the page on port `3000`       | Done   |
 | 5   | Full stack runs via `docker compose up` with correct version displayed | Done   |
+
+---
+
+## Test
+
+```sh
+cd frontend/app
+
+npm run lint
+npm test
+npm run build
+```
