@@ -1,4 +1,4 @@
-name: ci-build
+name: ci-pipeline-build
 
 on:
   workflow_dispatch:

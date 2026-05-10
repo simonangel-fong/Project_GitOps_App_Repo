@@ -1,4 +1,4 @@
-name: ci-backend-check
+name: pr-check-backend
 
 on:
   workflow_dispatch:
@@ -127,7 +127,7 @@ jobs:
       - dependency-scan
       - unit-test
       - image-build-scan
-    if: always()
+    if: failure()
     steps:
       - name: Notify on failure
         uses: slackapi/slack-github-action@v3.0.3
