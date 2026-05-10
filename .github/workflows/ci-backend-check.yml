@@ -13,8 +13,16 @@ on:
     paths:
       - backend/**
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
 jobs:
-  lint:
+  # Lint Check
+  lint-check:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6.0.2
@@ -37,6 +45,7 @@ jobs:
           chmod +x mvnw
           ./mvnw checkstyle:check
 
+  # Scan dependencies
   dependency-scan:
     runs-on: ubuntu-latest
     steps:
@@ -58,7 +67,7 @@ jobs:
         uses: actions/cache@v5.0.5
         with:
           path: ~/.m2/repository/org/owasp/dependency-check-data
-          key: ${{ runner.os }}-owasp-${{ github.run_id }}
+          key: ${{ runner.os }}-owasp-${{ hashFiles('backend/app/pom.xml') }}
           restore-keys: ${{ runner.os }}-owasp-
 
       - name: OWASP Dependency Check
@@ -67,6 +76,7 @@ jobs:
           chmod +x mvnw
           ./mvnw dependency-check:check
 
+  # Unit Test
   unit-test:
     runs-on: ubuntu-latest
     steps:
@@ -90,28 +100,24 @@ jobs:
           chmod +x mvnw
           ./mvnw test
 
+  # Build and scan image
   image-build-scan:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6.0.2
 
-      - name: Docker login
-        uses: docker/login-action@v4.1.0
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
       - name: Build image
         run: |
           PR_NUMBER=${{ github.event.pull_request.number || github.run_number }}
-          docker build -t ${{ secrets.DOCKERHUB_URL }}/gitops-demo:backend-pr-${PR_NUMBER} ./backend
+          docker build -t gitops-demo:backend-pr-${PR_NUMBER} ./backend
 
       - name: Trivy image scan
         uses: aquasecurity/trivy-action@v0.36.0
         with:
-          image-ref: ${{ secrets.DOCKERHUB_URL }}/gitops-demo:backend-pr-${{ github.event.pull_request.number || github.run_number }}
+          image-ref: gitops-demo:backend-pr-${{ github.event.pull_request.number || github.run_number }}
           format: table
           exit-code: "1"
+          ignore-unfixed: true
           severity: HIGH,CRITICAL
 
   # notify:

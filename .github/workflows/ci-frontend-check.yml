@@ -1,0 +1,104 @@
+name: ci-frontend-check
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - frontend/**
+  push:
+    branches:
+      - feature/*
+    paths:
+      - frontend/**
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  lint-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6.0.2
+
+      - uses: actions/setup-node@v4.4.0
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/app/package-lock.json
+
+      - name: Install dependencies
+        working-directory: frontend/app
+        run: npm ci
+
+      - name: ESLint
+        working-directory: frontend/app
+        run: npm run lint
+
+  unit-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6.0.2
+
+      - uses: actions/setup-node@v4.4.0
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/app/package-lock.json
+
+      - name: Install dependencies
+        working-directory: frontend/app
+        run: npm ci
+
+      - name: Unit tests with coverage
+        working-directory: frontend/app
+        run: npm run test:coverage
+
+  image-build-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6.0.2
+
+      - name: Build image
+        run: |
+          PR_NUMBER=${{ github.event.pull_request.number || github.run_number }}
+          docker build -t gitops-demo:frontend-pr-${PR_NUMBER} ./frontend
+
+      - name: Trivy image scan
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: gitops-demo:frontend-pr-${{ github.event.pull_request.number || github.run_number }}
+          format: table
+          exit-code: '1'
+          ignore-unfixed: true
+          severity: HIGH,CRITICAL
+
+  # notify:
+  #   runs-on: ubuntu-latest
+  #   needs: [lint, unit-test, image-build-scan]
+  #   if: failure()
+  #   steps:
+  #     - name: Notify on failure
+  #       uses: slackapi/slack-github-action@v3.0.3
+  #       with:
+  #         webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+  #         webhook-type: incoming-webhook
+  #         payload: |
+  #           {
+  #             "text": ":x: *ci-frontend-check failed*",
+  #             "attachments": [
+  #               {
+  #                 "color": "danger",
+  #                 "fields": [
+  #                   { "title": "Branch",  "value": "${{ github.ref_name }}", "short": true },
+  #                   { "title": "Commit",  "value": "${{ github.sha }}", "short": true },
+  #                   { "title": "Run",     "value": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}", "short": false }
+  #                 ]
+  #               }
+  #             ]
+  #           }
