@@ -120,27 +120,31 @@ jobs:
           ignore-unfixed: true
           severity: HIGH,CRITICAL
 
-  # notify:
-  #   runs-on: ubuntu-latest
-  #   needs: [lint, dependency-scan, unit-test, image-build-scan]
-  #   if: failure()
-  #   steps:
-  #     - name: Notify on failure
-  #       uses: slackapi/slack-github-action@v3.0.3
-  #       with:
-  #         webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
-  #         webhook-type: incoming-webhook
-  #         payload: |
-  #           {
-  #             "text": ":x: *ci-backend-check failed*",
-  #             "attachments": [
-  #               {
-  #                 "color": "danger",
-  #                 "fields": [
-  #                   { "title": "Branch",  "value": "${{ github.ref_name }}", "short": true },
-  #                   { "title": "Commit",  "value": "${{ github.sha }}", "short": true },
-  #                   { "title": "Run",     "value": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}", "short": false }
-  #                 ]
-  #               }
-  #             ]
-  #           }
+  notify:
+    runs-on: ubuntu-latest
+    needs:
+      - lint-check
+      - dependency-scan
+      - unit-test
+      - image-build-scan
+    if: always()
+    steps:
+      - name: Notify on failure
+        uses: slackapi/slack-github-action@v3.0.3
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
+          payload: |
+            {
+              "text": ":x: *ci-backend-check failed*",
+              "attachments": [
+                {
+                  "color": "danger",
+                  "fields": [
+                    { "title": "Branch",  "value": "${{ github.ref_name }}", "short": true },
+                    { "title": "Commit",  "value": "${{ github.sha }}", "short": true },
+                    { "title": "Run",     "value": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}", "short": false }
+                  ]
+                }
+              ]
+            }

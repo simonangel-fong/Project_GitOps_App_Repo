@@ -84,7 +84,7 @@ jobs:
       - lint-check
       - unit-test
       - image-build-scan
-    if: always()
+    if: failure()
     steps:
       - name: Notify on failure
         uses: slackapi/slack-github-action@v3.0.3
@@ -93,7 +93,7 @@ jobs:
           webhook-type: incoming-webhook
           payload: |
             {
-              "text": ":x: *ci-frontend-check ${{ job.status }}*",
+              "text": ":x: *ci-frontend-check failure*",
               "attachments": [
                 {
                   "color": "danger",
