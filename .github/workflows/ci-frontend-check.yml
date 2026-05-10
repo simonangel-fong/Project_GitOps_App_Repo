@@ -93,7 +93,7 @@ jobs:
           webhook-type: incoming-webhook
           payload: |
             {
-              "text": ":x: *ci-frontend-check failed*",
+              "text": ":x: *ci-frontend-check *",
               "attachments": [
                 {
                   "color": "danger",
