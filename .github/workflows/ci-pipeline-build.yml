@@ -196,23 +196,11 @@ jobs:
     steps:
       - uses: actions/checkout@v6.0.2
 
-      - name: Docker login
-        uses: docker/login-action@v4.1.0
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - name: Build backend image
-        run: docker build -t ${{ secrets.DOCKERHUB_URL }}/gitops-demo:backend-${{ github.sha }} ./backend
-
-      - name: Build frontend image
-        run: docker build -t ${{ secrets.DOCKERHUB_URL }}/gitops-demo:frontend-${{ github.sha }} ./frontend
-
       - name: Smoke test
         env:
           APP_VERSION: ${{ github.sha }}
         run: |
-          APP_VERSION=${APP_VERSION} docker compose up --wait --build=false
+          docker compose up --wait
           curl --fail --retry 5 --retry-delay 3 http://localhost:8000/
           docker compose down
 
@@ -221,15 +209,17 @@ jobs:
     needs: [detect-changes, smoke-test]
     if: needs.detect-changes.outputs.backend_changed == 'true'
     steps:
+      - uses: actions/checkout@v6.0.2
+
       - name: Docker login
         uses: docker/login-action@v4.1.0
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Push backend image
+      - name: Build and push backend image
         run: |
-          docker pull ${{ secrets.DOCKERHUB_URL }}/gitops-demo:backend-${{ github.sha }}
+          docker build -t ${{ secrets.DOCKERHUB_URL }}/gitops-demo:backend-${{ github.sha }} ./backend
           docker tag ${{ secrets.DOCKERHUB_URL }}/gitops-demo:backend-${{ github.sha }} ${{ secrets.DOCKERHUB_URL }}/gitops-demo:backend-latest
           docker push ${{ secrets.DOCKERHUB_URL }}/gitops-demo:backend-${{ github.sha }}
           docker push ${{ secrets.DOCKERHUB_URL }}/gitops-demo:backend-latest
@@ -239,15 +229,17 @@ jobs:
     needs: [detect-changes, smoke-test]
     if: needs.detect-changes.outputs.frontend_changed == 'true'
     steps:
+      - uses: actions/checkout@v6.0.2
+
       - name: Docker login
         uses: docker/login-action@v4.1.0
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Push frontend image
+      - name: Build and push frontend image
         run: |
-          docker pull ${{ secrets.DOCKERHUB_URL }}/gitops-demo:frontend-${{ github.sha }}
+          docker build -t ${{ secrets.DOCKERHUB_URL }}/gitops-demo:frontend-${{ github.sha }} ./frontend
           docker tag ${{ secrets.DOCKERHUB_URL }}/gitops-demo:frontend-${{ github.sha }} ${{ secrets.DOCKERHUB_URL }}/gitops-demo:frontend-latest
           docker push ${{ secrets.DOCKERHUB_URL }}/gitops-demo:frontend-${{ github.sha }}
           docker push ${{ secrets.DOCKERHUB_URL }}/gitops-demo:frontend-latest
