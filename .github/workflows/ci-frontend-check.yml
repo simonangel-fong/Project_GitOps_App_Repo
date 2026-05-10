@@ -84,7 +84,7 @@ jobs:
       - lint-check
       - unit-test
       - image-build-scan
-    if: failure()
+    if: always()
     steps:
       - name: Notify on failure
         uses: slackapi/slack-github-action@v3.0.3
