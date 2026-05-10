@@ -236,7 +236,6 @@ APP_VERSION=1.2.3 docker compose up --build
 
 ---
 
-
 ## Code Validation Check
 
 ```sh
@@ -245,7 +244,7 @@ cd backend/app
 # coding standards and style rules
 mvn checkstyle:check
 # Security Scanning
-mvn dependency-check:check 
+mvn dependency-check:check
 # unit test
 mvn test
 # image-scan
