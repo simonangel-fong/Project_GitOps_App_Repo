@@ -35,21 +35,12 @@ jobs:
           echo "backend_changed=$( [ "$BACKEND" -gt 0 ] && echo true || echo false )" >> $GITHUB_OUTPUT
           echo "frontend_changed=$( [ "$FRONTEND" -gt 0 ] && echo true || echo false )" >> $GITHUB_OUTPUT
 
-  build-and-smoke:
+  backend-build-scan:
     runs-on: ubuntu-latest
     needs: detect-changes
-    env:
-      GIT_SHA: ${{ github.sha }}
     steps:
       - uses: actions/checkout@v6.0.2
 
-      - name: Docker login
-        uses: docker/login-action@v4.1.0
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      # Backend
       - uses: actions/setup-java@v5.2.0
         with:
           java-version: '25'
@@ -69,18 +60,23 @@ jobs:
           ./mvnw test
 
       - name: Backend build image
-        run: docker build -t ${{ secrets.DOCKERHUB_URL }}/gitops-demo:backend-${{ github.sha }} ./backend
+        run: docker build -t gitops-demo:backend-${{ github.sha }} ./backend
 
       - name: Backend Trivy scan
         uses: aquasecurity/trivy-action@v0.36.0
         with:
-          image-ref: ${{ secrets.DOCKERHUB_URL }}/gitops-demo:backend-${{ github.sha }}
+          image-ref: gitops-demo:backend-${{ github.sha }}
           format: table
           exit-code: '1'
           ignore-unfixed: true
           severity: HIGH,CRITICAL
 
-      # Frontend
+  frontend-build-scan:
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    steps:
+      - uses: actions/checkout@v6.0.2
+
       - uses: actions/setup-node@v4.4.0
         with:
           node-version: '22'
@@ -96,18 +92,35 @@ jobs:
         run: npm run test:coverage
 
       - name: Frontend build image
-        run: docker build -t ${{ secrets.DOCKERHUB_URL }}/gitops-demo:frontend-${{ github.sha }} ./frontend
+        run: docker build -t gitops-demo:frontend-${{ github.sha }} ./frontend
 
       - name: Frontend Trivy scan
         uses: aquasecurity/trivy-action@v0.36.0
         with:
-          image-ref: ${{ secrets.DOCKERHUB_URL }}/gitops-demo:frontend-${{ github.sha }}
+          image-ref: gitops-demo:frontend-${{ github.sha }}
           format: table
           exit-code: '1'
           ignore-unfixed: true
           severity: HIGH,CRITICAL
 
-      # Smoke test
+  smoke-test:
+    runs-on: ubuntu-latest
+    needs: [backend-build-scan, frontend-build-scan]
+    steps:
+      - uses: actions/checkout@v6.0.2
+
+      - name: Docker login
+        uses: docker/login-action@v4.1.0
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build backend image
+        run: docker build -t ${{ secrets.DOCKERHUB_URL }}/gitops-demo:backend-${{ github.sha }} ./backend
+
+      - name: Build frontend image
+        run: docker build -t ${{ secrets.DOCKERHUB_URL }}/gitops-demo:frontend-${{ github.sha }} ./frontend
+
       - name: Smoke test
         env:
           APP_VERSION: ${{ github.sha }}
@@ -118,7 +131,7 @@ jobs:
 
   backend-push:
     runs-on: ubuntu-latest
-    needs: [detect-changes, build-and-smoke]
+    needs: [detect-changes, smoke-test]
     if: needs.detect-changes.outputs.backend_changed == 'true'
     steps:
       - name: Docker login
@@ -129,14 +142,13 @@ jobs:
 
       - name: Push backend image
         run: |
-          docker pull ${{ secrets.DOCKERHUB_URL }}/gitops-demo:backend-${{ github.sha }}
           docker tag ${{ secrets.DOCKERHUB_URL }}/gitops-demo:backend-${{ github.sha }} ${{ secrets.DOCKERHUB_URL }}/gitops-demo:backend-latest
           docker push ${{ secrets.DOCKERHUB_URL }}/gitops-demo:backend-${{ github.sha }}
           docker push ${{ secrets.DOCKERHUB_URL }}/gitops-demo:backend-latest
 
   frontend-push:
     runs-on: ubuntu-latest
-    needs: [detect-changes, build-and-smoke]
+    needs: [detect-changes, smoke-test]
     if: needs.detect-changes.outputs.frontend_changed == 'true'
     steps:
       - name: Docker login
@@ -147,7 +159,6 @@ jobs:
 
       - name: Push frontend image
         run: |
-          docker pull ${{ secrets.DOCKERHUB_URL }}/gitops-demo:frontend-${{ github.sha }}
           docker tag ${{ secrets.DOCKERHUB_URL }}/gitops-demo:frontend-${{ github.sha }} ${{ secrets.DOCKERHUB_URL }}/gitops-demo:frontend-latest
           docker push ${{ secrets.DOCKERHUB_URL }}/gitops-demo:frontend-${{ github.sha }}
           docker push ${{ secrets.DOCKERHUB_URL }}/gitops-demo:frontend-latest
@@ -155,7 +166,7 @@ jobs:
   # config-repo-pr:
   #   runs-on: ubuntu-latest
   #   needs: [detect-changes, backend-push, frontend-push]
-  #   if: always() && needs.build-and-smoke.result == 'success'
+  #   if: always() && needs.smoke-test.result == 'success'
   #   steps:
   #     - name: Checkout config repo
   #       uses: actions/checkout@v6.0.2
@@ -181,7 +192,7 @@ jobs:
 
   # notify:
   #   runs-on: ubuntu-latest
-  #   needs: [build-and-smoke, backend-push, frontend-push]
+  #   needs: [backend-build-scan, frontend-build-scan, smoke-test, backend-push, frontend-push]
   #   if: failure()
   #   steps:
   #     - name: Notify on failure
