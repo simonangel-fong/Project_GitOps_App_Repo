@@ -1,153 +1,145 @@
 # CI Pipeline Design
 
-## Group 1: PR Validation (feature/* → main)
+[Back](../README.md)
 
-Triggered on pull request and push to feature branches. Purpose: validate changes before merge.
+## Overview
+
+Three pipelines across two groups:
+
+| Pipeline            | Trigger                                              | Purpose                                    |
+| ------------------- | ---------------------------------------------------- | ------------------------------------------ |
+| `pr-check-backend`  | push to `feature/*` or PR to `main` (backend paths)  | Validate backend before merge              |
+| `pr-check-frontend` | push to `feature/*` or PR to `main` (frontend paths) | Validate frontend before merge             |
+| `ci-pipeline-build` | push to `main` (backend or frontend paths)           | Build, test, scan, smoke test, push images |
+
+---
+
+## Group 1: PR Validation
+
+### pr-check-backend
+
+**Features**
+
+- All jobs run in parallel — no sequential bottleneck
+- Stale runs cancelled on new push (`cancel-in-progress: true`)
+- Image built and scanned locally — never pushed to registry
+- Slack notified on failure
+
+**Jobs**
+
+- `lint-check` — Checkstyle (Maven)
+- `dependency-scan` — OWASP Dependency Check, fail on HIGH/CRITICAL
+- `unit-test` — JUnit with JaCoCo coverage
+- `image-build-scan` — Docker build + Trivy scan, fail on HIGH/CRITICAL (fixable only)
+- `notify` — Slack on failure
+
+**Workflow**
 
 ```txt
-Pipeline ci-backend-check
-trigger:
-    pull_request
-        from: feature/* → main
-        paths: backend/
-    push
-        feature/*
-        paths: backend/
-jobs:
-    lint (needs: -)
-        checkout code
-        mvn checkstyle:check
-
-    dependency-scan (needs: lint)
-        checkout code
-        mvn dependency-check:check          # OWASP Dependency Check, fail on HIGH/CRITICAL
-
-    unit-test (needs: dependency-scan)
-        checkout code
-        mvn test                            # includes jacoco coverage threshold check
-
-    maven-build (needs: unit-test)
-        mvn package -DskipTests
-
-    image-build (needs: maven-build)        # build only, no push
-        docker login registry               # credentials from CI secrets
-        docker build -t registry/backend:pr-<pr-number> ./backend
-
-    image-scan (needs: image-build)
-        trivy image registry/backend:pr-<pr-number>
-        fail if HIGH/CRITICAL vulnerabilities found
-
-    notify (on: failure, always)
-        notify Slack/email
-        message: pipeline, job, branch, commit <sha>, link to run
-
-
-Pipeline ci-frontend-check
-trigger:
-    pull_request
-        from: feature/* → main
-        paths: frontend/
-    push
-        feature/*
-        paths: frontend/
-jobs:
-    lint (needs: -)
-        checkout code
-        npm ci
-        npm run lint                        # ESLint
-
-    dependency-scan (needs: lint)
-        npm audit --audit-level=high        # fail on HIGH/CRITICAL
-
-    unit-test (needs: dependency-scan)
-        npm test                            # Vitest with coverage threshold
-
-    npm-build (needs: unit-test)
-        npm run build
-
-    image-build (needs: npm-build)          # build only, no push
-        docker login registry               # credentials from CI secrets
-        docker build -t registry/frontend:pr-<pr-number> ./frontend
-
-    image-scan (needs: image-build)
-        trivy image registry/frontend:pr-<pr-number>
-        fail if HIGH/CRITICAL vulnerabilities found
-
-    notify (on: failure, always)
-        notify Slack/email
-        message: pipeline, job, branch, commit <sha>, link to run
+                      pull request (feature-* -> main; path: backend/)
+                                   │
+                                   ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│  lint-check  │  dependency-scan  │  unit-test  │  image-build-scan  │
+└─────────────────────────────────────────────────────────────────────┘
+                                   │ any failure
+                                   ▼
+                              notify (Slack)
 ```
 
-## Group 2: Release (push to main)
+---
 
-Triggered on push to main (i.e., PR merged). Purpose: build, smoke test, push images, and promote to config repo.
+### pr-check-frontend
+
+**Features**
+
+- All jobs run in parallel
+- Stale runs cancelled on new push
+- Image built and scanned locally — never pushed to registry
+- Slack notified on failure
+
+**Jobs**
+
+- `lint-check` — ESLint
+- `unit-test` — Vitest with coverage
+- `image-build-scan` — Docker build + Trivy scan, fail on HIGH/CRITICAL (fixable only)
+- `notify` — Slack on failure
+
+**Workflow**
 
 ```txt
-Pipeline ci-build
-trigger:
-    push
-        branch: main
-        paths: backend/, frontend/
+                pull request (feature-* -> main; path: frontbend/)
+                        │
+                        ▼
+┌─────────────────────────────────────────────────┐
+│  lint-check  │  unit-test  │  image-build-scan  │
+└─────────────────────────────────────────────────┘
+                        │ any failure
+                        ▼
+                     notify (Slack)
+```
 
-jobs:
-    detect-changes                          # outputs: backend_changed, frontend_changed
-        checkout code
-        git diff --name-only HEAD~1 HEAD -- backend/  → backend_changed
-        git diff --name-only HEAD~1 HEAD -- frontend/ → frontend_changed
+---
 
-    backend-build (needs: detect-changes)
-        checkout code
-        mvn test                            # includes jacoco coverage threshold check
-        mvn package -DskipTests
-        docker login registry               # credentials from CI secrets
-        docker build -t registry/backend:<git-sha> ./backend
-        trivy image registry/backend:<git-sha>
-        fail if HIGH/CRITICAL vulnerabilities found
+## Group 2: Release
 
-    frontend-build (needs: detect-changes)
-        checkout code
-        npm ci
-        npm test                            # Vitest with coverage threshold
-        npm run build
-        docker login registry               # credentials from CI secrets
-        docker build -t registry/frontend:<git-sha> ./frontend
-        trivy image registry/frontend:<git-sha>
-        fail if HIGH/CRITICAL vulnerabilities found
+### ci-pipeline-build
 
-    smoke-test (needs: backend-build, frontend-build)
-        docker login registry
-        APP_VERSION=<git-sha> docker compose up --wait   # waits for health checks
-        run smoke tests (e.g. curl /health, HTTP assertions)
-        docker compose down                              # always runs, even on failure
+**Features**
 
-    backend-push (needs: smoke-test)
-        if: backend_changed == true
-        docker login registry
-        docker push registry/backend:<git-sha>
-        docker tag  registry/backend:<git-sha> registry/backend:latest
-        docker push registry/backend:latest
+- Detects which component changed — only pushes affected images
+- 7 validation jobs run in parallel before smoke test
+- Smoke test runs full stack locally via `docker compose` — no registry involved
+- Images only pushed to DockerHub after smoke test passes
+- Release blocked if any validation or smoke test fails
+- Concurrent releases not cancelled — each release runs to completion
+- Slack notified on both success and failure
 
-    frontend-push (needs: smoke-test)
-        if: frontend_changed == true
-        docker login registry
-        docker push registry/frontend:<git-sha>
-        docker tag  registry/frontend:<git-sha> registry/frontend:latest
-        docker push registry/frontend:latest
+**Jobs**
 
-    config-repo-pr (needs: backend-push, frontend-push)
-        git clone config-repo (using deploy token / SSH key)
-        git checkout -b release/<git-sha>
-        yq update backend image tag  (if backend_changed)
-        yq update frontend image tag (if frontend_changed)
-        git commit -m "release: update image tags to <git-sha>"
-        git push origin release/<git-sha>
-        gh pr create --title "release: <git-sha>" --base main
+- `detect-changes` — outputs `backend_changed`, `frontend_changed` from `git diff`
+- `backend-lint` — Checkstyle
+- `backend-dependency-scan` — OWASP Dependency Check
+- `backend-unit-test` — JUnit with JaCoCo coverage
+- `backend-image-scan` — Docker build + Trivy scan
+- `frontend-lint` — ESLint
+- `frontend-unit-test` — Vitest with coverage
+- `frontend-image-scan` — Docker build + Trivy scan
+- `smoke-test` — `docker compose up --wait` → `curl` → `docker compose down`
+- `backend-push` — build + push `backend:<sha>` and `backend:latest` (if backend changed)
+- `frontend-push` — build + push `frontend:<sha>` and `frontend:latest` (if frontend changed)
+- `notify` — Slack on success and failure
 
-    notify (on: failure, always)
-        notify Slack/email
-        message: pipeline, job, branch, commit <sha>, link to run
+**Workflow**
 
-    notify (on: success of config-repo-pr)
-        notify Slack/email
-        message: release <git-sha> ready for review — link to config repo PR
+```txt
+                        merge
+                          │
+                          ▼
+                     detect-changes
+                          │
+          ┌───────────────┼───────────────┐
+          │               │               │
+  ┌───────┴──────┐        │      ┌────────┴──────┐
+  │   Backend    │        │      │    Frontend   │
+  │  lint        │        │      │  lint         │
+  │  dep-scan    │        │      │  unit-test    │
+  │  unit-test   │        │      │  image-scan   │
+  │  image-scan  │        │      └───────────────┘
+  └───────┬──────┘        │               │
+          └───────────────┼───────────────┘
+                          │ all must pass
+                          ▼
+                      smoke-test
+                    (local compose)
+                          │
+               ┌──────────┴──────────┐
+               │                     │
+          backend-push          frontend-push
+         (if changed)           (if changed)
+               │                     │
+               └──────────┬──────────┘
+                          │
+                        notify
+                  (success or failure)
 ```

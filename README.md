@@ -30,3 +30,15 @@ Browser → frontend (React / nginx :8000) → backend (Spring Boot :8080)
 The `version` field reflects the `APP_VERSION` environment variable (default: `0.1.0`).
 
 ---
+
+## CI Pipelines
+
+| Pipeline            | Trigger                                     | Purpose                                      |
+| ------------------- | ------------------------------------------- | -------------------------------------------- |
+| `pr-check-backend`  | push `feature/*` or PR to `main` (backend)  | Lint, dependency scan, unit test, image scan |
+| `pr-check-frontend` | push `feature/*` or PR to `main` (frontend) | Lint, unit test, image scan                  |
+| `ci-pipeline-build` | push to `main` (backend or frontend)        | Full validation, smoke test, push images     |
+
+See [docs/ci_design.md](docs/ci_design.md) for the full pipeline design.
+
+---
