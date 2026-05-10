@@ -35,7 +35,62 @@ jobs:
           echo "backend_changed=$( [ "$BACKEND" -gt 0 ] && echo true || echo false )" >> $GITHUB_OUTPUT
           echo "frontend_changed=$( [ "$FRONTEND" -gt 0 ] && echo true || echo false )" >> $GITHUB_OUTPUT
 
-  backend-build-scan:
+  backend-lint:
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    steps:
+      - uses: actions/checkout@v6.0.2
+
+      - uses: actions/setup-java@v5.2.0
+        with:
+          java-version: '25'
+          distribution: temurin
+
+      - name: Cache Maven packages
+        uses: actions/cache@v5.0.5
+        with:
+          path: ~/.m2
+          key: ${{ runner.os }}-m2-${{ hashFiles('backend/app/pom.xml') }}
+          restore-keys: ${{ runner.os }}-m2-
+
+      - name: Checkstyle
+        working-directory: backend/app
+        run: |
+          chmod +x mvnw
+          ./mvnw checkstyle:check
+
+  backend-dependency-scan:
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    steps:
+      - uses: actions/checkout@v6.0.2
+
+      - uses: actions/setup-java@v5.2.0
+        with:
+          java-version: '25'
+          distribution: temurin
+
+      - name: Cache Maven packages
+        uses: actions/cache@v5.0.5
+        with:
+          path: ~/.m2
+          key: ${{ runner.os }}-m2-${{ hashFiles('backend/app/pom.xml') }}
+          restore-keys: ${{ runner.os }}-m2-
+
+      - name: Cache OWASP NVD data
+        uses: actions/cache@v5.0.5
+        with:
+          path: ~/.m2/repository/org/owasp/dependency-check-data
+          key: ${{ runner.os }}-owasp-${{ hashFiles('backend/app/pom.xml') }}
+          restore-keys: ${{ runner.os }}-owasp-
+
+      - name: OWASP Dependency Check
+        working-directory: backend/app
+        run: |
+          chmod +x mvnw
+          ./mvnw dependency-check:check
+
+  backend-unit-test:
     runs-on: ubuntu-latest
     needs: detect-changes
     steps:
@@ -59,7 +114,13 @@ jobs:
           chmod +x mvnw
           ./mvnw test
 
-      - name: Backend build image
+  backend-image-scan:
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    steps:
+      - uses: actions/checkout@v6.0.2
+
+      - name: Build backend image
         run: docker build -t gitops-demo:backend-${{ github.sha }} ./backend
 
       - name: Backend Trivy scan
@@ -71,7 +132,27 @@ jobs:
           ignore-unfixed: true
           severity: HIGH,CRITICAL
 
-  frontend-build-scan:
+  frontend-lint:
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    steps:
+      - uses: actions/checkout@v6.0.2
+
+      - uses: actions/setup-node@v4.4.0
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/app/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: frontend/app
+        run: npm ci
+
+      - name: ESLint
+        working-directory: frontend/app
+        run: npm run lint
+
+  frontend-unit-test:
     runs-on: ubuntu-latest
     needs: detect-changes
     steps:
@@ -91,7 +172,13 @@ jobs:
         working-directory: frontend/app
         run: npm run test:coverage
 
-      - name: Frontend build image
+  frontend-image-scan:
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    steps:
+      - uses: actions/checkout@v6.0.2
+
+      - name: Build frontend image
         run: docker build -t gitops-demo:frontend-${{ github.sha }} ./frontend
 
       - name: Frontend Trivy scan
@@ -105,7 +192,7 @@ jobs:
 
   smoke-test:
     runs-on: ubuntu-latest
-    needs: [backend-build-scan, frontend-build-scan]
+    needs: [backend-lint, backend-dependency-scan, backend-unit-test, backend-image-scan, frontend-lint, frontend-unit-test, frontend-image-scan]
     steps:
       - uses: actions/checkout@v6.0.2
 
@@ -142,6 +229,7 @@ jobs:
 
       - name: Push backend image
         run: |
+          docker pull ${{ secrets.DOCKERHUB_URL }}/gitops-demo:backend-${{ github.sha }}
           docker tag ${{ secrets.DOCKERHUB_URL }}/gitops-demo:backend-${{ github.sha }} ${{ secrets.DOCKERHUB_URL }}/gitops-demo:backend-latest
           docker push ${{ secrets.DOCKERHUB_URL }}/gitops-demo:backend-${{ github.sha }}
           docker push ${{ secrets.DOCKERHUB_URL }}/gitops-demo:backend-latest
@@ -159,6 +247,7 @@ jobs:
 
       - name: Push frontend image
         run: |
+          docker pull ${{ secrets.DOCKERHUB_URL }}/gitops-demo:frontend-${{ github.sha }}
           docker tag ${{ secrets.DOCKERHUB_URL }}/gitops-demo:frontend-${{ github.sha }} ${{ secrets.DOCKERHUB_URL }}/gitops-demo:frontend-latest
           docker push ${{ secrets.DOCKERHUB_URL }}/gitops-demo:frontend-${{ github.sha }}
           docker push ${{ secrets.DOCKERHUB_URL }}/gitops-demo:frontend-latest
@@ -190,27 +279,51 @@ jobs:
   #         git push origin release/${{ github.sha }}
   #         gh pr create --title "release: ${{ github.sha }}" --base main
 
-  # notify:
-  #   runs-on: ubuntu-latest
-  #   needs: [backend-build-scan, frontend-build-scan, smoke-test, backend-push, frontend-push]
-  #   if: failure()
-  #   steps:
-  #     - name: Notify on failure
-  #       uses: slackapi/slack-github-action@v3.0.3
-  #       with:
-  #         webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
-  #         webhook-type: incoming-webhook
-  #         payload: |
-  #           {
-  #             "text": ":x: *ci-build failed*",
-  #             "attachments": [
-  #               {
-  #                 "color": "danger",
-  #                 "fields": [
-  #                   { "title": "Branch",  "value": "${{ github.ref_name }}", "short": true },
-  #                   { "title": "Commit",  "value": "${{ github.sha }}", "short": true },
-  #                   { "title": "Run",     "value": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}", "short": false }
-  #                 ]
-  #               }
-  #             ]
-  #           }
+  notify:
+    runs-on: ubuntu-latest
+    needs: [backend-lint, backend-dependency-scan, backend-unit-test, backend-image-scan, frontend-lint, frontend-unit-test, frontend-image-scan, smoke-test, backend-push, frontend-push]
+    if: always()
+    steps:
+      - name: Notify success
+        if: ${{ !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') }}
+        uses: slackapi/slack-github-action@v3.0.3
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
+          payload: |
+            {
+              "text": ":white_check_mark: *ci-pipeline-build passed*",
+              "attachments": [
+                {
+                  "color": "good",
+                  "fields": [
+                    { "title": "Branch",  "value": "${{ github.ref_name }}", "short": true },
+                    { "title": "Commit",  "value": "${{ github.sha }}", "short": true },
+                    { "title": "Author",  "value": "${{ github.actor }}", "short": true },
+                    { "title": "Run",     "value": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}", "short": false }
+                  ]
+                }
+              ]
+            }
+
+      - name: Notify failure
+        if: ${{ contains(needs.*.result, 'failure') }}
+        uses: slackapi/slack-github-action@v3.0.3
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
+          payload: |
+            {
+              "text": ":x: *ci-pipeline-build failed*",
+              "attachments": [
+                {
+                  "color": "danger",
+                  "fields": [
+                    { "title": "Branch",  "value": "${{ github.ref_name }}", "short": true },
+                    { "title": "Commit",  "value": "${{ github.sha }}", "short": true },
+                    { "title": "Author",  "value": "${{ github.actor }}", "short": true },
+                    { "title": "Run",     "value": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}", "short": false }
+                  ]
+                }
+              ]
+            }
