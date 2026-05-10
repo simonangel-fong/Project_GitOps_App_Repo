@@ -22,7 +22,7 @@
     - [Step 4 — Create the Docker Image](#step-4--create-the-docker-image)
     - [Step 5 — Run with Docker Compose](#step-5--run-with-docker-compose)
   - [Acceptance Criteria](#acceptance-criteria)
-  - [Test](#test)
+  - [Code Validation Check](#code-validation-check)
 
 ---
 
@@ -236,12 +236,32 @@ APP_VERSION=1.2.3 docker compose up --build
 
 ---
 
-## Test
+
+## Code Validation Check
+
+```sh
+cd backend/app
+
+# coding standards and style rules
+mvn checkstyle:check
+# Security Scanning
+mvn dependency-check:check 
+# unit test
+mvn test
+# image-scan
+trivy image gitops-backend
+```
 
 ```sh
 cd frontend/app
 
+# lint check
 npm run lint
+# unit test
 npm test
 npm run build
+
+# image-scan
+docker build -t gitops-frontend .
+trivy image gitops-frontend
 ```
