@@ -190,8 +190,10 @@ Create a multi-stage `Dockerfile` at `backend/Dockerfile`:
 
 ```sh
 cd backend
-docker build -t gitops-backend .
-docker run -d --name gitops-backend -e APP_VERSION=1.2.3 -p 8080:8080 gitops-backend
+docker build -t simonangelfong/gitops-demo:backend-latest .
+docker run -d --name gitops-demo-backend -e APP_VERSION=1.2.3 -p 8080:8080 simonangelfong/gitops-demo:backend-latest
+
+
 
 curl http://localhost:8080/health
 # OK
