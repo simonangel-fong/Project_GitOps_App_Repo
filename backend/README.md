@@ -234,4 +234,7 @@ mvn dependency-check:check
 mvn test
 # image-scan
 trivy image gitops-backend
+
+docker compose up -d
+docker compose down -v
 ```

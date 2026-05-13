@@ -3,9 +3,9 @@ services:
     build:
       context: ./backend
     environment:
-      APP_VERSION: ${APP_VERSION:-1.2.3}
-    expose:
-      - "8080"
+      APP_VERSION: ${APP_VERSION:-1.2.4}
+    ports:
+      - "8080:8080"
 
   frontend:
     build:
@@ -13,6 +13,6 @@ services:
     environment:
       BACKEND_URL: http://backend:8080
     ports:
-      - "8000:80"
+      - "8000:8000"
     depends_on:
       - backend
