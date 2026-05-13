@@ -238,3 +238,5 @@ trivy image gitops-backend
 docker compose up -d
 docker compose down -v
 ```
+
+cd "c:\Users\simon\OneDrive\Tech\Github\Project_GitOps_App_Repo" && docker compose build --no-cache backend 2>&1 | tail -10

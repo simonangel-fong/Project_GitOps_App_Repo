@@ -13,7 +13,7 @@ public class ApiController {
     @Value("${APP_VERSION:0.1.0}")
     private String appVersion;
 
-    @GetMapping("/")
+    @GetMapping({"", "/"})
     public Map<String, Object> root() {
         Map<String, Object> response = new HashMap<>();
         response.put("app", "gitops");
