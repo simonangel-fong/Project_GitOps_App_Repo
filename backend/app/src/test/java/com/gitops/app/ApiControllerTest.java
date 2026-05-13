@@ -31,6 +31,15 @@ class ApiControllerTest {
     }
 
     @Test
+    void root_returns200AndJsonFields() throws Exception {
+        mockMvc.perform(get("/"))
+                .andExpect(status().isOk())
+                .andExpect(content().contentTypeCompatibleWith("application/json"))
+                .andExpect(jsonPath("$.app").value("gitops"))
+                .andExpect(jsonPath("$.version").value("0.1.0"));
+    }
+
+    @Test
     void version_returns200AndJsonFields() throws Exception {
         mockMvc.perform(get("/version"))
                 .andExpect(status().isOk())
