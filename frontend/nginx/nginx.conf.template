@@ -14,9 +14,7 @@ server {
     add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline';";
 
     location /version {
-        proxy_pass ${BACKEND_URL}/version;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
+        proxy_pass ${BACKEND_URL}/;
     }
 
     location / {

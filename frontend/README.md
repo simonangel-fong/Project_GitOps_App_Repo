@@ -263,4 +263,8 @@ npm run build
 # image-scan
 docker build -t gitops-frontend .
 trivy image gitops-frontend
+
+cd frontend/
+docker build -t simonangelfong/gitops-demo:frontend-latest .
+docker push simonangelfong/gitops-demo:frontend-latest
 ```

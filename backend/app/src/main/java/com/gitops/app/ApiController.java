@@ -25,13 +25,4 @@ public class ApiController {
     public String health() {
         return "OK";
     }
-
-    @GetMapping("/version")
-    public Map<String, Object> getVersion() {
-        Map<String, Object> response = new HashMap<>();
-        response.put("status", "success");
-        response.put("code", 200);
-        response.put("version", appVersion);
-        return response;
-    }
 }
