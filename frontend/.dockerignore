@@ -1,5 +1,6 @@
 app/node_modules
 app/dist
+app/coverage
 **/.git
 **/*.md
 app/.env*

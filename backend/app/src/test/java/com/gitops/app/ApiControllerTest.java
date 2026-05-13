@@ -32,7 +32,7 @@ class ApiControllerTest {
 
     @Test
     void root_returns200AndJsonFields() throws Exception {
-        mockMvc.perform(get("/"))
+        mockMvc.perform(get("/app"))
                 .andExpect(status().isOk())
                 .andExpect(content().contentTypeCompatibleWith("application/json"))
                 .andExpect(jsonPath("$.app").value("gitops"))

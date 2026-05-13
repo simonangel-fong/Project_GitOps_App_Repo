@@ -9,4 +9,4 @@ FROM nginxinc/nginx-unprivileged:alpine3.23-perl@sha256:8b87091ac53a3d9073fe265e
 COPY --from=builder /app/dist /usr/share/nginx/html
 COPY nginx/nginx.conf.template /etc/nginx/templates/default.conf.template
 ENV BACKEND_URL=http://backend:8080
-EXPOSE 8000
+EXPOSE 80
