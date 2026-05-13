@@ -193,7 +193,7 @@ cd backend
 docker build -t simonangelfong/gitops-demo:backend-latest .
 docker run -d --name gitops-demo-backend -e APP_VERSION=1.2.3 -p 8080:8080 simonangelfong/gitops-demo:backend-latest
 
-
+docker push simonangelfong/gitops-demo:backend-latest
 
 curl http://localhost:8080/health
 # OK
@@ -235,8 +235,10 @@ mvn test
 # image-scan
 trivy image gitops-backend
 
-docker compose up -d
+docker compose up -d --build
 docker compose down -v
-```
 
-cd "c:\Users\simon\OneDrive\Tech\Github\Project_GitOps_App_Repo" && docker compose build --no-cache backend 2>&1 | tail -10
+cd backend/
+docker build -t simonangelfong/gitops-demo:backend-latest .
+docker push simonangelfong/gitops-demo:backend-latest
+```

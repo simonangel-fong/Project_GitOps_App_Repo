@@ -4,16 +4,17 @@ services:
     #   context: ./backend
     image: simonangelfong/gitops-demo:backend-latest
     environment:
-      APP_VERSION: ${APP_VERSION:-1.2.4}
+      APP_VERSION: ${APP_VERSION:-1.0.1}
     ports:
       - "8080:8080"
 
   frontend:
-    # build:
-    #   context: ./frontend
-    image: simonangelfong/gitops-demo:frontend-latest
+    build:
+      context: ./frontend
+    # image: simonangelfong/gitops-demo:frontend-latest
     environment:
       BACKEND_URL: http://backend:8080
+      NGINX_ENVSUBST_FILTER: BACKEND_URL
     ports:
       - "8000:8000"
     depends_on:
