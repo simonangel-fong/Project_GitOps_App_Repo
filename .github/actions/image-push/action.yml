@@ -45,15 +45,17 @@ runs:
         username: ${{ inputs.registry-username }}
         password: ${{ inputs.registry-password }}
 
-    - name: Tag and push image
+    - name: Tag image for remote registry
       shell: bash
-      env:
-        LOCAL_IMAGE: ${{ inputs.image-name }}:${{ inputs.image-tag }}
-        RAW_NAMESPACE: ${{ inputs.registry-namespace }}
-        IMAGE_NAME: ${{ inputs.image-name }}
-        REMOTE_TAG: ${{ inputs.remote-tag }}
       run: |
-        NAMESPACE=$(printf '%s' "$RAW_NAMESPACE" | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]')
-        REMOTE="${NAMESPACE}/${IMAGE_NAME}:${REMOTE_TAG}"
-        docker tag "$LOCAL_IMAGE" "$REMOTE"
-        docker push "$REMOTE"
+        namespace="$(echo '${{ inputs.registry-namespace }}' | tr '[:upper:]' '[:lower:]' | xargs)"
+        echo $namespace
+        remote_ref="${namespace}/${{ inputs.image-name }}:${{ inputs.remote-tag }}"
+        echo $remote_ref
+        docker tag '${{ inputs.image-name }}:${{ inputs.image-tag }}' "$remote_ref"
+        echo "REMOTE_REF=$remote_ref" >> "$GITHUB_ENV"
+
+    - name: Push image
+      shell: bash
+      run: docker push "$REMOTE_REF"
+
