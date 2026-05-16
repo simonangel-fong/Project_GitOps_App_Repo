@@ -51,8 +51,12 @@
 - Trigger
   - push from non-main branchs + change at frontend/ path
   - pull request to main branch + change at frontend/ path
-- Key Jobs(//: parallel)
-  - frontend-lint-check // frontend-unit-check // frontend-build // frontend-image-build
+- Key Jobs
+  - parallel
+    - frontend-lint-check
+    - frontend-unit-check
+    - frontend-build-npm
+    - frontend-build-image
   - notify-slack [ always ]
 - Note:
   - no scan for flexibility
