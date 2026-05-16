@@ -113,6 +113,52 @@ jobs:
           image-name: ${{ env.frontend-image-name }}
           image-tag: ${{ env.frontend-image-tag }}-${{ github.sha }}
 
+  # Smoke Test: run both images via docker compose, verify integration
+  smoke-test:
+    runs-on: ubuntu-latest
+    needs:
+      - backend-build-image
+      - frontend-build-image
+    env:
+      BACKEND_IMAGE: ${{ env.backend-image-name }}:${{ env.backend-image-tag }}-${{ github.sha }}
+      FRONTEND_IMAGE: ${{ env.frontend-image-name }}:${{ env.frontend-image-tag }}-${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v6.0.2
+
+      - name: Download backend image artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ env.backend-image-name }}-image
+          path: /tmp
+
+      - name: Download frontend image artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ env.frontend-image-name }}-image
+          path: /tmp
+
+      - name: Load images
+        run: |
+          docker load -i /tmp/${{ env.backend-image-name }}.tar
+          docker load -i /tmp/${{ env.frontend-image-name }}.tar
+
+      - name: Start stack
+        run: docker compose up -d --wait
+
+      - name: Curl frontend root
+        run: curl --fail --retry 5 --retry-delay 3 --retry-connrefused http://localhost:8000/
+
+      - name: Curl backend via frontend proxy
+        run: curl --fail --retry 5 --retry-delay 3 --retry-connrefused http://localhost:8000/app/health
+
+      - name: Dump compose logs on failure
+        if: failure()
+        run: docker compose logs
+
+      - name: Tear down stack
+        if: always()
+        run: docker compose down --volumes --remove-orphans
+
   notify:
     runs-on: ubuntu-latest
     needs:
@@ -126,6 +172,7 @@ jobs:
       - frontend-build-npm
       - frontend-build-image
       - frontend-image-scan
+      - smoke-test
     if: always()
     steps:
       - uses: actions/checkout@v6.0.2

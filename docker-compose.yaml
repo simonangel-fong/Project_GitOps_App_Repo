@@ -1,8 +1,6 @@
 services:
   backend:
-    # build:
-    #   context: ./backend
-    image: simonangelfong/gitops-demo:backend
+    image: ${BACKEND_IMAGE:-simonangelfong/gitops-demo:backend}
     environment:
       APP_VERSION: ${APP_VERSION:-1.4.1}
     ports:
@@ -15,14 +13,12 @@ services:
       start_period: 20s
 
   frontend:
-    # build:
-    #   context: ./frontend
-    image: simonangelfong/gitops-demo:frontend
+    image: ${FRONTEND_IMAGE:-simonangelfong/gitops-demo:frontend}
     environment:
       BACKEND_URL: http://backend:8080
       NGINX_ENVSUBST_FILTER: BACKEND_URL
     ports:
-      - "8000:8080"
+      - "8000:80"
     depends_on:
       backend:
         condition: service_healthy
