@@ -1,4 +1,4 @@
-name: backend-unit-check
+name: backend-unit-test
 description: Run backend unit tests via mvn test.
 
 inputs:

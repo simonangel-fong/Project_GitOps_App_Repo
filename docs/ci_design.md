@@ -54,7 +54,7 @@
 - Key Jobs
   - parallel
     - frontend-lint-check
-    - frontend-unit-check
+    - frontend-unit-test
     - frontend-build-npm
     - frontend-build-image
   - notify-slack [ always ]
