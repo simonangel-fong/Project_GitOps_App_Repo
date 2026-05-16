@@ -35,6 +35,13 @@ jobs:
       - uses: actions/checkout@v6.0.2
       - uses: ./.github/actions/frontend-unit-check
 
+  # Frontend Build (npm)
+  frontend-build-npm:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6.0.2
+      - uses: ./.github/actions/frontend-build-npm
+
   image-build-scan:
     runs-on: ubuntu-latest
     steps:
@@ -59,6 +66,7 @@ jobs:
     needs:
       - frontend-lint-check
       - frontend-unit-check
+      - frontend-build-npm
       - image-build-scan
     if: failure()
     steps:
