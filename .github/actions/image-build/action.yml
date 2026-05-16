@@ -1,4 +1,4 @@
-name: build-image
+name: image-build
 description: Build a Docker image, optionally save it as a workflow artifact for reuse in downstream jobs.
 
 inputs:

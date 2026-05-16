@@ -52,7 +52,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6.0.2
-      - uses: ./.github/actions/build-image
+      - uses: ./.github/actions/image-build
         with:
           context: ${{ env.backend-dockerfile-path }}
           image-name: ${{ env.backend-image-name }}
@@ -178,27 +178,14 @@ jobs:
       - backend-image-scan
       - ci-smoke-test
     steps:
-      - name: Download backend image artifact
-        uses: actions/download-artifact@v4
+      - uses: actions/checkout@v6.0.2
+      - uses: ./.github/actions/image-push
         with:
-          name: ${{ env.backend-image-name }}-image
-          path: /tmp
-
-      - name: Load image
-        run: docker load -i /tmp/${{ env.backend-image-name }}.tar
-
-      - name: Docker login
-        uses: docker/login-action@v4.1.0
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - name: Tag and push backend image
-        run: |
-          LOCAL=${{ env.backend-image-name }}:${{ env.backend-image-tag }}-${{ github.sha }}
-          REMOTE=${{ secrets.DOCKERHUB_USERNAME }}/${{ env.backend-image-name }}:${{ github.sha }}
-          docker tag "$LOCAL" "$REMOTE"
-          docker push "$REMOTE"
+          image-name: ${{ env.backend-image-name }}
+          image-tag: ${{ env.backend-image-tag }}-${{ github.sha }}
+          registry-namespace: ${{ secrets.DOCKERHUB_USERNAME }}
+          registry-username: ${{ secrets.DOCKERHUB_USERNAME }}
+          registry-password: ${{ secrets.DOCKERHUB_TOKEN }}
 
   # Frontend Image Push (sha)
   frontend-image-push:
@@ -207,27 +194,14 @@ jobs:
       - frontend-image-scan
       - ci-smoke-test
     steps:
-      - name: Download frontend image artifact
-        uses: actions/download-artifact@v4
+      - uses: actions/checkout@v6.0.2
+      - uses: ./.github/actions/image-push
         with:
-          name: ${{ env.frontend-image-name }}-image
-          path: /tmp
-
-      - name: Load image
-        run: docker load -i /tmp/${{ env.frontend-image-name }}.tar
-
-      - name: Docker login
-        uses: docker/login-action@v4.1.0
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - name: Tag and push frontend image
-        run: |
-          LOCAL=${{ env.frontend-image-name }}:${{ env.frontend-image-tag }}-${{ github.sha }}
-          REMOTE=${{ secrets.DOCKERHUB_USERNAME }}/${{ env.frontend-image-name }}:${{ github.sha }}
-          docker tag "$LOCAL" "$REMOTE"
-          docker push "$REMOTE"
+          image-name: ${{ env.frontend-image-name }}
+          image-tag: ${{ env.frontend-image-tag }}-${{ github.sha }}
+          registry-namespace: ${{ secrets.DOCKERHUB_USERNAME }}
+          registry-username: ${{ secrets.DOCKERHUB_USERNAME }}
+          registry-password: ${{ secrets.DOCKERHUB_TOKEN }}
 
   notify:
     runs-on: ubuntu-latest

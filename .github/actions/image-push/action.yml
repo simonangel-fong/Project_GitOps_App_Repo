@@ -1,0 +1,59 @@
+name: image-push
+description: Download a built image artifact, load it, and push to a Docker registry under a sha tag.
+
+inputs:
+  image-name:
+    description: Local image repository name (matches build-image input).
+    required: true
+  image-tag:
+    description: Local image tag (matches build-image input).
+    required: true
+  artifact-name:
+    description: Artifact name produced by build-image. Defaults to <image-name>-image.
+    required: false
+    default: ""
+  registry-namespace:
+    description: Registry namespace/username (e.g. Docker Hub username or org). Will be lowercased and trimmed.
+    required: true
+  registry-username:
+    description: Registry login username.
+    required: true
+  registry-password:
+    description: Registry login password or token.
+    required: true
+  remote-tag:
+    description: Tag to push to the remote registry. Defaults to the commit sha.
+    required: false
+    default: ${{ github.sha }}
+
+runs:
+  using: composite
+  steps:
+    - name: Download image artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: ${{ inputs.artifact-name != '' && inputs.artifact-name || format('{0}-image', inputs.image-name) }}
+        path: /tmp
+
+    - name: Load image
+      shell: bash
+      run: docker load -i /tmp/${{ inputs.image-name }}.tar
+
+    - name: Docker login
+      uses: docker/login-action@v4.1.0
+      with:
+        username: ${{ inputs.registry-username }}
+        password: ${{ inputs.registry-password }}
+
+    - name: Tag and push image
+      shell: bash
+      env:
+        LOCAL_IMAGE: ${{ inputs.image-name }}:${{ inputs.image-tag }}
+        RAW_NAMESPACE: ${{ inputs.registry-namespace }}
+        IMAGE_NAME: ${{ inputs.image-name }}
+        REMOTE_TAG: ${{ inputs.remote-tag }}
+      run: |
+        NAMESPACE=$(printf '%s' "$RAW_NAMESPACE" | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]')
+        REMOTE="${NAMESPACE}/${IMAGE_NAME}:${REMOTE_TAG}"
+        docker tag "$LOCAL_IMAGE" "$REMOTE"
+        docker push "$REMOTE"
