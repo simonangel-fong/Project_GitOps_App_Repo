@@ -1,0 +1,107 @@
+name: 30-cd-build-test
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - backend/**
+      - frontend/**
+
+concurrency:
+  group: cd-build-test
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  backend-dockerfile-path: backend
+  backend-image-name: gitops-demo-backend
+  backend-image-tag: main
+  frontend-dockerfile-path: frontend
+  frontend-image-name: gitops-demo-frontend
+  frontend-image-tag: main
+
+jobs:
+  # Backend Lint Check
+  backend-lint-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6.0.2
+      - uses: ./.github/actions/backend-lint-check
+
+  # Backend Maven Build
+  backend-build-maven:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6.0.2
+      - uses: ./.github/actions/backend-build-maven
+
+  # Backend Unit Test
+  backend-unit-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6.0.2
+      - uses: ./.github/actions/backend-unit-test
+
+  # Backend Image Build
+  backend-build-image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6.0.2
+
+      - name: Build image
+        run: |
+          docker build -t ${{ env.backend-image-name }}:${{ env.backend-image-tag }}-${{ github.sha }} ./${{ env.backend-dockerfile-path }}
+
+  # Frontend Lint Check
+  frontend-lint-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6.0.2
+      - uses: ./.github/actions/frontend-lint-check
+
+  # Frontend Unit Test
+  frontend-unit-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6.0.2
+      - uses: ./.github/actions/frontend-unit-test
+
+  # Frontend npm Build
+  frontend-build-npm:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6.0.2
+      - uses: ./.github/actions/frontend-build-npm
+
+  # Frontend Image Build
+  frontend-build-image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6.0.2
+
+      - name: Build image
+        run: |
+          docker build -t ${{ env.frontend-image-name }}:${{ env.frontend-image-tag }}-${{ github.sha }} ./${{ env.frontend-dockerfile-path }}
+
+  notify:
+    runs-on: ubuntu-latest
+    needs:
+      - backend-lint-check
+      - backend-build-maven
+      - backend-unit-test
+      - backend-build-image
+      - frontend-lint-check
+      - frontend-unit-test
+      - frontend-build-npm
+      - frontend-build-image
+    if: always()
+    steps:
+      - uses: actions/checkout@v6.0.2
+      - uses: ./.github/actions/notify-slack
+        with:
+          webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          needs-context: ${{ toJSON(needs) }}
