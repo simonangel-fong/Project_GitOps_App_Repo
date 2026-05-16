@@ -38,7 +38,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6.0.2
-      - uses: ./.github/actions/backend-unit-check
+      - uses: ./.github/actions/backend-unit-test
 
   # Backend Maven Build
   backend-build-maven:
