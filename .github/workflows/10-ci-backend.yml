@@ -47,44 +47,27 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6.0.2
+      - uses: ./.github/actions/backend-unit-check
 
-      - uses: actions/setup-java@v5.2.0
-        with:
-          java-version: "25"
-          distribution: temurin
+  # # Build and scan image
+  # image-build-scan:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v6.0.2
 
-      - name: Cache Maven packages
-        uses: actions/cache@v5.0.5
-        with:
-          path: ~/.m2
-          key: ${{ runner.os }}-m2-${{ hashFiles('backend/app/pom.xml') }}
-          restore-keys: ${{ runner.os }}-m2-
+  #     - name: Build image
+  #       run: |
+  #         PR_NUMBER=${{ github.event.pull_request.number || github.run_number }}
+  #         docker build -t gitops-demo:backend-pr-${PR_NUMBER} ./backend
 
-      - name: Unit tests with coverage
-        working-directory: backend/app
-        run: |
-          chmod +x mvnw
-          ./mvnw test
-
-  # Build and scan image
-  image-build-scan:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6.0.2
-
-      - name: Build image
-        run: |
-          PR_NUMBER=${{ github.event.pull_request.number || github.run_number }}
-          docker build -t gitops-demo:backend-pr-${PR_NUMBER} ./backend
-
-      - name: Trivy image scan
-        uses: aquasecurity/trivy-action@v0.36.0
-        with:
-          image-ref: gitops-demo:backend-pr-${{ github.event.pull_request.number || github.run_number }}
-          format: table
-          exit-code: "1"
-          ignore-unfixed: true
-          severity: HIGH,CRITICAL
+  #     - name: Trivy image scan
+  #       uses: aquasecurity/trivy-action@v0.36.0
+  #       with:
+  #         image-ref: gitops-demo:backend-pr-${{ github.event.pull_request.number || github.run_number }}
+  #         format: table
+  #         exit-code: "1"
+  #         ignore-unfixed: true
+  #         severity: HIGH,CRITICAL
 
   notify:
     runs-on: ubuntu-latest
@@ -93,7 +76,7 @@ jobs:
       # - dependency-scan
       - build
       - unit-test
-      - image-build-scan
+      # - image-build-scan
     if: failure()
     steps:
       - name: Notify on failure

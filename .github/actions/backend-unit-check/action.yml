@@ -1,0 +1,42 @@
+name: backend-unit-check
+description: Run backend unit tests via mvn test.
+
+inputs:
+  java-version:
+    description: Java version to install.
+    required: false
+    default: "25"
+  java-distribution:
+    description: Java distribution for actions/setup-java.
+    required: false
+    default: temurin
+  working-directory:
+    description: Directory containing the Maven wrapper and pom.xml.
+    required: false
+    default: backend/app
+  pom-path:
+    description: Path to pom.xml, used in the Maven cache key.
+    required: false
+    default: backend/app/pom.xml
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-java@v5.2.0
+      with:
+        java-version: ${{ inputs.java-version }}
+        distribution: ${{ inputs.java-distribution }}
+
+    - name: Cache Maven packages
+      uses: actions/cache@v5.0.5
+      with:
+        path: ~/.m2
+        key: ${{ runner.os }}-m2-${{ hashFiles(inputs.pom-path) }}
+        restore-keys: ${{ runner.os }}-m2-
+
+    - name: Unit tests
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        chmod +x mvnw
+        ./mvnw test
