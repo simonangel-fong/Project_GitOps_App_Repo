@@ -10,9 +10,9 @@
 | ----------------------- | ------------------------------------------ | ----------------------------- | ------ |
 | backend-lint-check      | mvn checkstyle:check                       | coding standards              | \*     |
 | backend-dependency-scan | mvn org.owasp:dependency-check-maven:check | dependency check              | \*     |
-| backend-build           | mvn package                                | Build Spring Boot artifact    | \*     |
+| backend-maven-build     | mvn package                                | Build Spring Boot artifact    | \*     |
+| backend-unit-test       | mvn test                                   | unit test                     | \*     |
 | backend-image-build     | docker build                               | Build backend image           |        |
-| backend-unit-check      | mvn test                                   | unit test                     | \*     |
 | frontend-lint-check     | npm run lint                               | lint check                    | \*     |
 | frontend-unit-check     | npm run test                               | unit test                     | \*     |
 | frontend-build          | npm run build                              | Build React production assets | \*     |
@@ -33,7 +33,7 @@
   - push from non-main branchs + change at backend/ path
   - pull request to main branch + change at backend/ path
 - Key Jobs(//: parallel)
-  - backend-lint-check // backend-build // backend-dependency-scan // backend-unit-check // backend-image-build
+  - backend-lint-check // backend-maven-build // backend-dependency-scan // backend-unit-test // backend-image-build
   - notify-slack [ always ]
 - Note:
   - no scan for flexibility
