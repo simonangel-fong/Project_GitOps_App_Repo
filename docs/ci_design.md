@@ -82,10 +82,13 @@
     - frontend-build-npm
     - frontend-build-image
   - parallel
-    - dependency-scan
-    - smoke-test: ci-test/docker-compose.yaml
-    - image-scan: use image built in preivous job
-  - image-push(sha)
+    - dependency-scan: skip now
+    - ci-smoke-test: ci-test/docker-compose.yaml
+    - backend-image-scan: use image built in preivous job
+    - frontend-image-scan: use image built in preivous job
+  - parallel
+    - backend-image-push(sha)
+    - frontend-image-push(sha)
   - notify-slack [ always ]
 
 ---
