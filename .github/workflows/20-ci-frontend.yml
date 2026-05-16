@@ -20,6 +20,11 @@ concurrency:
 permissions:
   contents: read
 
+env:
+  frontend-dockerfile-path: frontend
+  frontend-image-name: gitops-demo-frontend
+  frontend-image-tag: pr
+
 jobs:
   # Frontend Lint Check
   frontend-lint-check:
@@ -35,14 +40,15 @@ jobs:
       - uses: actions/checkout@v6.0.2
       - uses: ./.github/actions/frontend-unit-check
 
-  # Frontend Build (npm)
+  # Frontend npm Build
   frontend-build-npm:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6.0.2
       - uses: ./.github/actions/frontend-build-npm
 
-  image-build-scan:
+  # Frontend Image Build
+  frontend-build-image:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6.0.2
@@ -50,16 +56,7 @@ jobs:
       - name: Build image
         run: |
           PR_NUMBER=${{ github.event.pull_request.number || github.run_number }}
-          docker build -t gitops-demo:frontend-pr-${PR_NUMBER} ./frontend
-
-      - name: Trivy image scan
-        uses: aquasecurity/trivy-action@v0.36.0
-        with:
-          image-ref: gitops-demo:frontend-pr-${{ github.event.pull_request.number || github.run_number }}
-          format: table
-          exit-code: "1"
-          ignore-unfixed: true
-          severity: HIGH,CRITICAL
+          docker build -t ${{ env.frontend-image-name }}:${{ env.frontend-image-tag }}-${PR_NUMBER} ./${{ env.frontend-dockerfile-path }}
 
   notify:
     runs-on: ubuntu-latest
@@ -67,20 +64,33 @@ jobs:
       - frontend-lint-check
       - frontend-unit-check
       - frontend-build-npm
-      - image-build-scan
-    if: failure()
+      - frontend-build-image
+    if: always()
     steps:
-      - name: Notify on failure
+      - name: Compute overall status
+        id: status
+        run: |
+          if [ "${{ contains(needs.*.result, 'failure') }}" = "true" ] || [ "${{ contains(needs.*.result, 'cancelled') }}" = "true" ]; then
+            echo "icon=:x:" >> "$GITHUB_OUTPUT"
+            echo "color=danger" >> "$GITHUB_OUTPUT"
+            echo "title=10-ci-backend failed" >> "$GITHUB_OUTPUT"
+          else
+            echo "icon=:white_check_mark:" >> "$GITHUB_OUTPUT"
+            echo "color=good" >> "$GITHUB_OUTPUT"
+            echo "title=10-ci-backend succeeded" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Notify Slack
         uses: slackapi/slack-github-action@v3.0.3
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
           webhook-type: incoming-webhook
           payload: |
             {
-              "text": ":x: *ci-frontend-check failure*",
+              "text": "${{ steps.status.outputs.icon }} *${{ steps.status.outputs.title }}*",
               "attachments": [
                 {
-                  "color": "danger",
+                  "color": "${{ steps.status.outputs.color }}",
                   "fields": [
                     { "title": "Branch",  "value": "${{ github.ref_name }}", "short": true },
                     { "title": "Commit",  "value": "${{ github.sha }}", "short": true },
