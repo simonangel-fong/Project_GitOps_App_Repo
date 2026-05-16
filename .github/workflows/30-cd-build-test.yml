@@ -120,6 +120,9 @@ jobs:
     needs:
       - backend-build-image
       - frontend-build-image
+    defaults:
+      run:
+        working-directory: ${{ env.docker-compose-path }}
     steps:
       - uses: actions/checkout@v6.0.2
 
@@ -144,7 +147,6 @@ jobs:
         env:
           BACKEND_IMAGE: ${{ env.backend-image-name }}:${{ env.backend-image-tag }}-${{ github.sha }}
           FRONTEND_IMAGE: ${{ env.frontend-image-name }}:${{ env.frontend-image-tag }}-${{ github.sha }}
-        working-directory: ${{ env.docker-compose-path }}
         run: docker compose up -d --wait
 
       - name: Curl frontend root
