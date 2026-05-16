@@ -1,0 +1,119 @@
+name: 40-release
+
+on:
+  workflow_dispatch:
+    inputs:
+      component:
+        description: Component to release.
+        required: true
+        type: choice
+        options:
+          - backend
+          - frontend
+          - both
+      source-sha:
+        description: Git sha used as the source image tag suffix (e.g. the commit sha published by 30-cd-build-test).
+        required: true
+        type: string
+      release-tag:
+        description: Release tag to publish (e.g. v1.2.3). Final image tag is <component>-<release-tag>.
+        required: true
+        type: string
+
+concurrency:
+  group: release-${{ inputs.component }}-${{ inputs.release-tag }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  registry-namespace: ${{ secrets.DOCKERHUB_USERNAME }}
+  image-repo: gitops-demo
+  config-repo: simonangel-fong/Project_GitOps_Config_Repo
+  backend-manifest-path: app/backend/base/20_rollout.yaml
+  frontend-manifest-path: app/frontend/base/20_rollout.yaml
+
+jobs:
+  resolve-matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      components: ${{ steps.set.outputs.components }}
+    steps:
+      - id: set
+        shell: bash
+        env:
+          COMPONENT: ${{ inputs.component }}
+        run: |
+          case "$COMPONENT" in
+            backend)  echo 'components=["backend"]' >> "$GITHUB_OUTPUT" ;;
+            frontend) echo 'components=["frontend"]' >> "$GITHUB_OUTPUT" ;;
+            both)     echo 'components=["backend","frontend"]' >> "$GITHUB_OUTPUT" ;;
+            *)        echo "Unknown component: $COMPONENT" >&2; exit 1 ;;
+          esac
+
+  release:
+    runs-on: ubuntu-latest
+    needs: resolve-matrix
+    strategy:
+      fail-fast: false
+      matrix:
+        component: ${{ fromJSON(needs.resolve-matrix.outputs.components) }}
+    steps:
+      - uses: actions/checkout@v6.0.2
+
+      - name: Docker login
+        uses: docker/login-action@v4.1.0
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Verify source image exists
+        shell: bash
+        env:
+          NAMESPACE_RAW: ${{ env.registry-namespace }}
+          IMAGE_REPO: ${{ env.image-repo }}
+          SOURCE_TAG: ${{ matrix.component }}-${{ inputs.source-sha }}
+        run: |
+          set -euo pipefail
+          namespace="$(echo "$NAMESPACE_RAW" | tr '[:upper:]' '[:lower:]' | xargs)"
+          ref="${namespace}/${IMAGE_REPO}:${SOURCE_TAG}"
+          echo "Inspecting $ref"
+          docker buildx imagetools inspect "$ref"
+
+      - name: Retag and push
+        id: retag
+        uses: ./.github/actions/image-retag
+        with:
+          registry-namespace: ${{ secrets.DOCKERHUB_USERNAME }}
+          registry-username: ${{ secrets.DOCKERHUB_USERNAME }}
+          registry-password: ${{ secrets.DOCKERHUB_TOKEN }}
+          image-repo: ${{ env.image-repo }}
+          source-tag: ${{ matrix.component }}-${{ inputs.source-sha }}
+          component-tag: ${{ matrix.component }}
+          release-tag: ${{ inputs.release-tag }}
+
+      - name: Open config repo PR
+        uses: ./.github/actions/pr-config-repo
+        with:
+          config-repo: ${{ env.config-repo }}
+          config-repo-token: ${{ secrets.CONFIG_REPO_TOKEN }}
+          manifest-path: ${{ matrix.component == 'backend' && env.backend-manifest-path || env.frontend-manifest-path }}
+          image-repo-ref: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.image-repo }}
+          image-digest: ${{ steps.retag.outputs.image-digest }}
+          component: ${{ matrix.component }}
+          release-tag: ${{ inputs.release-tag }}
+          source-run-url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+  notify:
+    runs-on: ubuntu-latest
+    needs:
+      - resolve-matrix
+      - release
+    if: always()
+    steps:
+      - uses: actions/checkout@v6.0.2
+      - uses: ./.github/actions/notify-slack
+        with:
+          webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          needs-context: ${{ toJSON(needs) }}

@@ -1,0 +1,72 @@
+name: image-retag
+description: Pull a source image by digest, retag with a release tag plus a floating component tag, push both, and output the resulting digest.
+
+inputs:
+  registry-namespace:
+    description: Registry namespace/username (e.g. Docker Hub username or org). Will be lowercased and trimmed.
+    required: true
+  registry-username:
+    description: Registry login username.
+    required: true
+  registry-password:
+    description: Registry login password or token.
+    required: true
+  image-repo:
+    description: Image repository name under the namespace (e.g. gitops-demo).
+    required: true
+  source-tag:
+    description: Existing tag on the source image (e.g. backend-<git-sha>) used to locate the image to retag.
+    required: true
+  component-tag:
+    description: Floating component tag to publish (e.g. backend, frontend). Also used as the prefix for the release tag.
+    required: true
+  release-tag:
+    description: Release tag suffix (e.g. v1.2.3). Final tag pushed is <component-tag>-<release-tag>.
+    required: true
+
+outputs:
+  image-digest:
+    description: sha256 digest of the pushed manifest (e.g. sha256:abc...).
+    value: ${{ steps.push.outputs.digest }}
+  image-ref:
+    description: Fully qualified image reference with digest (namespace/repo@sha256:...).
+    value: ${{ steps.push.outputs.ref }}
+
+runs:
+  using: composite
+  steps:
+    - name: Docker login
+      uses: docker/login-action@v4.1.0
+      with:
+        username: ${{ inputs.registry-username }}
+        password: ${{ inputs.registry-password }}
+
+    - name: Pull, retag, push
+      id: push
+      shell: bash
+      env:
+        NAMESPACE_RAW: ${{ inputs.registry-namespace }}
+        IMAGE_REPO: ${{ inputs.image-repo }}
+        SOURCE_TAG: ${{ inputs.source-tag }}
+        COMPONENT_TAG: ${{ inputs.component-tag }}
+        RELEASE_TAG: ${{ inputs.release-tag }}
+      run: |
+        set -euo pipefail
+        namespace="$(echo "$NAMESPACE_RAW" | tr '[:upper:]' '[:lower:]' | xargs)"
+        source_ref="${namespace}/${IMAGE_REPO}:${SOURCE_TAG}"
+        release_ref="${namespace}/${IMAGE_REPO}:${COMPONENT_TAG}-${RELEASE_TAG}"
+        floating_ref="${namespace}/${IMAGE_REPO}:${COMPONENT_TAG}"
+
+        echo "Pulling $source_ref"
+        docker pull "$source_ref"
+
+        docker tag "$source_ref" "$release_ref"
+        docker tag "$source_ref" "$floating_ref"
+
+        docker push "$release_ref"
+        docker push "$floating_ref"
+
+        digest="$(docker buildx imagetools inspect "$release_ref" --format '{{json .Manifest}}' | jq -r '.digest')"
+        echo "digest=$digest" >> "$GITHUB_OUTPUT"
+        echo "ref=${namespace}/${IMAGE_REPO}@${digest}" >> "$GITHUB_OUTPUT"
+        echo "Published $release_ref and $floating_ref ($digest)"

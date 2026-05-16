@@ -1,0 +1,106 @@
+name: pr-config-repo
+description: Check out the GitOps config repo, update the component's rollout manifest with a new image digest, and open a pull request.
+
+inputs:
+  config-repo:
+    description: Full name of the config repo (owner/repo).
+    required: true
+  config-repo-token:
+    description: PAT with repo + workflow scope on the config repo. Used for checkout, push, and gh pr create.
+    required: true
+  manifest-path:
+    description: Path to the rollout manifest in the config repo (e.g. app/backend/base/20_rollout.yaml).
+    required: true
+  image-repo-ref:
+    description: Image reference without digest, used as the sed anchor (e.g. simonangelfong/gitops-demo).
+    required: true
+  image-digest:
+    description: New sha256 digest to write into the manifest (e.g. sha256:abc...).
+    required: true
+  component:
+    description: Component label used in branch name, commit message, and PR title (e.g. backend, frontend).
+    required: true
+  release-tag:
+    description: Release tag, used in branch name, commit message, and PR title.
+    required: true
+  source-run-url:
+    description: URL of the calling workflow run, included in the PR body for traceability.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Checkout config repo
+      uses: actions/checkout@v6.0.2
+      with:
+        repository: ${{ inputs.config-repo }}
+        token: ${{ inputs.config-repo-token }}
+        path: config-repo
+
+    - name: Update manifest and open PR
+      shell: bash
+      working-directory: config-repo
+      env:
+        GH_TOKEN: ${{ inputs.config-repo-token }}
+        MANIFEST_PATH: ${{ inputs.manifest-path }}
+        IMAGE_REPO_REF: ${{ inputs.image-repo-ref }}
+        IMAGE_DIGEST: ${{ inputs.image-digest }}
+        COMPONENT: ${{ inputs.component }}
+        RELEASE_TAG: ${{ inputs.release-tag }}
+        SOURCE_RUN_URL: ${{ inputs.source-run-url }}
+      run: |
+        set -euo pipefail
+
+        if [ ! -f "$MANIFEST_PATH" ]; then
+          echo "Manifest not found: $MANIFEST_PATH"
+          exit 1
+        fi
+
+        branch="release/${COMPONENT}-${RELEASE_TAG}"
+        git config user.name "github-actions[bot]"
+        git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+        git checkout -b "$branch"
+
+        # Replace the digest on the image line for this component's repo.
+        # Matches:  image: <IMAGE_REPO_REF>:<anything>@sha256:<hex>
+        # Replaces only the @sha256:<hex> portion.
+        python3 - <<'PY'
+        import os, re, sys
+        path = os.environ["MANIFEST_PATH"]
+        repo = re.escape(os.environ["IMAGE_REPO_REF"])
+        digest = os.environ["IMAGE_DIGEST"]
+        pattern = re.compile(
+            rf'(image:\s*{repo}:[^\s@]+)@sha256:[0-9a-f]+'
+        )
+        with open(path, "r", encoding="utf-8") as f:
+            original = f.read()
+        updated, n = pattern.subn(rf'\1@{digest}', original)
+        if n == 0:
+            print(f"No image line matched in {path}", file=sys.stderr)
+            sys.exit(1)
+        if updated == original:
+            print(f"Digest already up to date in {path}")
+            sys.exit(0)
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(updated)
+        print(f"Updated {n} line(s) in {path}")
+        PY
+
+        if git diff --quiet; then
+          echo "No manifest changes; skipping PR."
+          exit 0
+        fi
+
+        git add "$MANIFEST_PATH"
+        git commit -m "release(${COMPONENT}): ${RELEASE_TAG}"
+        git push --set-upstream origin "$branch"
+
+        gh pr create \
+          --repo "${{ inputs.config-repo }}" \
+          --base main \
+          --head "$branch" \
+          --title "release(${COMPONENT}): ${RELEASE_TAG}" \
+          --body "Bump \`${COMPONENT}\` image to \`${IMAGE_DIGEST}\`.
+
+        Release tag: \`${RELEASE_TAG}\`
+        Triggered by: ${SOURCE_RUN_URL}"
