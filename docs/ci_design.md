@@ -13,13 +13,14 @@
 | backend-unit-test    | mvn test                                   | unit test                     | \*     |
 | backend-build-image  | docker build                               | Build backend image           |        |
 | frontend-lint-check  | npm run lint                               | lint check                    | \*     |
-| frontend-unit-check  | npm run test                               | unit test                     | \*     |
+| frontend-unit-test   | npm run test                               | unit test                     | \*     |
 | frontend-build-npm   | npm run build                              | Build React production assets | \*     |
 | frontend-build-image | docker build                               | Build frontend image          |        |
 | dependency-scan      | mvn org.owasp:dependency-check-maven:check | dependency check              | \*     |
 | smoke-test           | docker compose                             | smoke-test                    |        |
 | image-scan           | trivy image scan                           | image scan                    |        |
 | image-push           | docker push                                | image push                    |        |
+| notify-slack         | slack                                      | slack notification            | \*     |
 
 ---
 
@@ -70,9 +71,20 @@
 - concurrency
   - group: cd-build-test
   - cancel-in-progress=false
-- Key Jobs(//: parallel)
-  - backend-lint-check // backend-build // backend-unit-check // backend-image-build // frontend-lint-check // frontend-unit-check // frontend-build // frontend-image-build
-  - dependency-scan//smoke-test//image-scan: use image built in preivous job
+- Key Jobs
+  - parallel
+    - backend-lint-check
+    - backend-build-maven
+    - backend-unit-test
+    - backend-build-image
+    - frontend-lint-check
+    - frontend-unit-test
+    - frontend-build-npm
+    - frontend-build-image
+  - parallel
+    - dependency-scan
+    - smoke-test
+    - image-scan: use image built in preivous job
   - image-push(sha)
   - notify-slack [ always ]
 
