@@ -51,10 +51,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6.0.2
-
-      - name: Build image
-        run: |
-          docker build -t ${{ env.backend-image-name }}:${{ env.backend-image-tag }}-${{ github.sha }} ./${{ env.backend-dockerfile-path }}
+      - uses: ./.github/actions/build-image
+        with:
+          context: ${{ env.backend-dockerfile-path }}
+          image-name: ${{ env.backend-image-name }}
+          image-tag: ${{ env.backend-image-tag }}-${{ github.sha }}
+          upload-artifact: "true"
 
   # Frontend Lint Check
   frontend-lint-check:
@@ -82,10 +84,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6.0.2
-
-      - name: Build image
-        run: |
-          docker build -t ${{ env.frontend-image-name }}:${{ env.frontend-image-tag }}-${{ github.sha }} ./${{ env.frontend-dockerfile-path }}
+      - uses: ./.github/actions/build-image
+        with:
+          context: ${{ env.frontend-dockerfile-path }}
+          image-name: ${{ env.frontend-image-name }}
+          image-tag: ${{ env.frontend-image-tag }}-${{ github.sha }}
+          upload-artifact: "true"
 
   notify:
     runs-on: ubuntu-latest

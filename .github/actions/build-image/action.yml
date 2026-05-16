@@ -1,0 +1,47 @@
+name: build-image
+description: Build a Docker image, optionally save it as a workflow artifact for reuse in downstream jobs.
+
+inputs:
+  context:
+    description: Docker build context path (e.g. backend, frontend).
+    required: true
+  image-name:
+    description: Image repository name (without tag).
+    required: true
+  image-tag:
+    description: Image tag.
+    required: true
+  upload-artifact:
+    description: Set to "true" to save the built image as a workflow artifact.
+    required: false
+    default: "false"
+  artifact-name:
+    description: Artifact name when upload-artifact=true. Defaults to <image-name>-image.
+    required: false
+    default: ""
+  artifact-retention-days:
+    description: Artifact retention in days.
+    required: false
+    default: "1"
+
+runs:
+  using: composite
+  steps:
+    - name: Build image
+      shell: bash
+      run: |
+        docker build -t ${{ inputs.image-name }}:${{ inputs.image-tag }} ./${{ inputs.context }}
+
+    - name: Save image to tarball
+      if: inputs.upload-artifact == 'true'
+      shell: bash
+      run: |
+        docker save ${{ inputs.image-name }}:${{ inputs.image-tag }} -o /tmp/${{ inputs.image-name }}.tar
+
+    - name: Upload image artifact
+      if: inputs.upload-artifact == 'true'
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ inputs.artifact-name != '' && inputs.artifact-name || format('{0}-image', inputs.image-name) }}
+        path: /tmp/${{ inputs.image-name }}.tar
+        retention-days: ${{ inputs.artifact-retention-days }}

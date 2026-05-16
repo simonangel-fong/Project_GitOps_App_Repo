@@ -52,11 +52,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6.0.2
-
-      - name: Build image
-        run: |
-          PR_NUMBER=${{ github.event.pull_request.number || github.run_number }}
-          docker build -t ${{ env.backend-image-name }}:${{ env.backend-image-tag }}-${PR_NUMBER} ./${{ env.backend-dockerfile-path }}
+      - uses: ./.github/actions/build-image
+        with:
+          context: ${{ env.backend-dockerfile-path }}
+          image-name: ${{ env.backend-image-name }}
+          image-tag: ${{ env.backend-image-tag }}-${{ github.event.pull_request.number || github.run_number }}
 
   notify:
     runs-on: ubuntu-latest
