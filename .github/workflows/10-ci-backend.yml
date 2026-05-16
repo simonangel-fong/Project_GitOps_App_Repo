@@ -67,35 +67,8 @@ jobs:
       - backend-build-image
     if: always()
     steps:
-      - name: Compute overall status
-        id: status
-        run: |
-          if [ "${{ contains(needs.*.result, 'failure') }}" = "true" ] || [ "${{ contains(needs.*.result, 'cancelled') }}" = "true" ]; then
-            echo "icon=:x:" >> "$GITHUB_OUTPUT"
-            echo "color=danger" >> "$GITHUB_OUTPUT"
-            echo "title=10-ci-backend failed" >> "$GITHUB_OUTPUT"
-          else
-            echo "icon=:white_check_mark:" >> "$GITHUB_OUTPUT"
-            echo "color=good" >> "$GITHUB_OUTPUT"
-            echo "title=10-ci-backend succeeded" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Notify Slack
-        uses: slackapi/slack-github-action@v3.0.3
+      - uses: actions/checkout@v6.0.2
+      - uses: ./.github/actions/notify-slack
         with:
-          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
-          webhook-type: incoming-webhook
-          payload: |
-            {
-              "text": "${{ steps.status.outputs.icon }} *${{ steps.status.outputs.title }}*",
-              "attachments": [
-                {
-                  "color": "${{ steps.status.outputs.color }}",
-                  "fields": [
-                    { "title": "Branch",  "value": "${{ github.ref_name }}", "short": true },
-                    { "title": "Commit",  "value": "${{ github.sha }}", "short": true },
-                    { "title": "Run",     "value": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}", "short": false }
-                  ]
-                }
-              ]
-            }
+          webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          needs-context: ${{ toJSON(needs) }}
