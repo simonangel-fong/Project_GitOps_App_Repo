@@ -1,4 +1,4 @@
-name: pr-check-frontend
+name: 20-ci-frontend
 
 on:
   workflow_dispatch:
