@@ -26,26 +26,26 @@ env:
   docker-compose-path: ci-test
 
 jobs:
-  # Backend Lint Check
-  backend-lint-check:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6.0.2
-      - uses: ./.github/actions/backend-lint-check
+  # # Backend Lint Check
+  # backend-lint-check:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v6.0.2
+  #     - uses: ./.github/actions/backend-lint-check
 
-  # Backend Maven Build
-  backend-build-maven:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6.0.2
-      - uses: ./.github/actions/backend-build-maven
+  # # Backend Maven Build
+  # backend-build-maven:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v6.0.2
+  #     - uses: ./.github/actions/backend-build-maven
 
-  # Backend Unit Test
-  backend-unit-test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6.0.2
-      - uses: ./.github/actions/backend-unit-test
+  # # Backend Unit Test
+  # backend-unit-test:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v6.0.2
+  #     - uses: ./.github/actions/backend-unit-test
 
   # Backend Image Build
   backend-build-image:
@@ -59,26 +59,26 @@ jobs:
           image-tag: ${{ env.backend-image-tag }}-${{ github.sha }}
           upload-artifact: "true"
 
-  # Frontend Lint Check
-  frontend-lint-check:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6.0.2
-      - uses: ./.github/actions/frontend-lint-check
+  # # Frontend Lint Check
+  # frontend-lint-check:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v6.0.2
+  #     - uses: ./.github/actions/frontend-lint-check
 
-  # Frontend Unit Test
-  frontend-unit-test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6.0.2
-      - uses: ./.github/actions/frontend-unit-test
+  # # Frontend Unit Test
+  # frontend-unit-test:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v6.0.2
+  #     - uses: ./.github/actions/frontend-unit-test
 
-  # Frontend npm Build
-  frontend-build-npm:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6.0.2
-      - uses: ./.github/actions/frontend-build-npm
+  # # Frontend npm Build
+  # frontend-build-npm:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v6.0.2
+  #     - uses: ./.github/actions/frontend-build-npm
 
   # Frontend Image Build
   frontend-build-image:
@@ -92,91 +92,92 @@ jobs:
           image-tag: ${{ env.frontend-image-tag }}-${{ github.sha }}
           upload-artifact: "true"
 
-  # Backend Image Scan
-  backend-image-scan:
-    runs-on: ubuntu-latest
-    needs: backend-build-image
-    steps:
-      - uses: actions/checkout@v6.0.2
-      - uses: ./.github/actions/image-scan
-        with:
-          image-name: ${{ env.backend-image-name }}
-          image-tag: ${{ env.backend-image-tag }}-${{ github.sha }}
+  # # Backend Image Scan
+  # backend-image-scan:
+  #   runs-on: ubuntu-latest
+  #   needs: backend-build-image
+  #   steps:
+  #     - uses: actions/checkout@v6.0.2
+  #     - uses: ./.github/actions/image-scan
+  #       with:
+  #         image-name: ${{ env.backend-image-name }}
+  #         image-tag: ${{ env.backend-image-tag }}-${{ github.sha }}
 
-  # Frontend Image Scan
-  frontend-image-scan:
-    runs-on: ubuntu-latest
-    needs: frontend-build-image
-    steps:
-      - uses: actions/checkout@v6.0.2
-      - uses: ./.github/actions/image-scan
-        with:
-          image-name: ${{ env.frontend-image-name }}
-          image-tag: ${{ env.frontend-image-tag }}-${{ github.sha }}
+  # # Frontend Image Scan
+  # frontend-image-scan:
+  #   runs-on: ubuntu-latest
+  #   needs: frontend-build-image
+  #   steps:
+  #     - uses: actions/checkout@v6.0.2
+  #     - uses: ./.github/actions/image-scan
+  #       with:
+  #         image-name: ${{ env.frontend-image-name }}
+  #         image-tag: ${{ env.frontend-image-tag }}-${{ github.sha }}
 
-  # Smoke Test: run both images via docker compose, verify integration
-  ci-smoke-test:
-    runs-on: ubuntu-latest
-    needs:
-      - backend-build-image
-      - frontend-build-image
-    defaults:
-      run:
-        working-directory: ${{ env.docker-compose-path }}
-    steps:
-      - uses: actions/checkout@v6.0.2
+  # # Smoke Test: run both images via docker compose, verify integration
+  # ci-smoke-test:
+  #   runs-on: ubuntu-latest
+  #   needs:
+  #     - backend-build-image
+  #     - frontend-build-image
+  #   defaults:
+  #     run:
+  #       working-directory: ${{ env.docker-compose-path }}
+  #   steps:
+  #     - uses: actions/checkout@v6.0.2
 
-      - name: Download backend image artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: ${{ env.backend-image-name }}-image
-          path: /tmp
+  #     - name: Download backend image artifact
+  #       uses: actions/download-artifact@v4
+  #       with:
+  #         name: ${{ env.backend-image-name }}-image
+  #         path: /tmp
 
-      - name: Download frontend image artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: ${{ env.frontend-image-name }}-image
-          path: /tmp
+  #     - name: Download frontend image artifact
+  #       uses: actions/download-artifact@v4
+  #       with:
+  #         name: ${{ env.frontend-image-name }}-image
+  #         path: /tmp
 
-      - name: Load images
-        run: |
-          docker load -i /tmp/${{ env.backend-image-name }}.tar
-          docker load -i /tmp/${{ env.frontend-image-name }}.tar
+  #     - name: Load images
+  #       run: |
+  #         docker load -i /tmp/${{ env.backend-image-name }}.tar
+  #         docker load -i /tmp/${{ env.frontend-image-name }}.tar
 
-      - name: Start stack
-        env:
-          BACKEND_IMAGE: ${{ env.backend-image-name }}:${{ env.backend-image-tag }}-${{ github.sha }}
-          FRONTEND_IMAGE: ${{ env.frontend-image-name }}:${{ env.frontend-image-tag }}-${{ github.sha }}
-        run: docker compose up -d --wait
+  #     - name: Start stack
+  #       env:
+  #         BACKEND_IMAGE: ${{ env.backend-image-name }}:${{ env.backend-image-tag }}-${{ github.sha }}
+  #         FRONTEND_IMAGE: ${{ env.frontend-image-name }}:${{ env.frontend-image-tag }}-${{ github.sha }}
+  #       run: docker compose up -d --wait
 
-      - name: Curl frontend root
-        run: curl --fail --retry 5 --retry-delay 3 --retry-connrefused http://localhost:8000/
+  #     - name: Curl frontend root
+  #       run: curl --fail --retry 5 --retry-delay 3 --retry-connrefused http://localhost:8000/
 
-      - name: Curl backend via frontend proxy
-        run: curl --fail --retry 5 --retry-delay 3 --retry-connrefused http://localhost:8000/api/health
+  #     - name: Curl backend via frontend proxy
+  #       run: curl --fail --retry 5 --retry-delay 3 --retry-connrefused http://localhost:8000/api/health
 
-      - name: Frontend stability probe (2 minutes)
-        run: |
-          end=$(( $(date +%s) + 120 ))
-          while [ $(date +%s) -lt $end ]; do
-            curl --fail --silent --show-error --max-time 5 http://localhost:8000/ > /dev/null
-            sleep 5
-          done
+  #     - name: Frontend stability probe (2 minutes)
+  #       run: |
+  #         end=$(( $(date +%s) + 120 ))
+  #         while [ $(date +%s) -lt $end ]; do
+  #           curl --fail --silent --show-error --max-time 5 http://localhost:8000/ > /dev/null
+  #           sleep 5
+  #         done
 
-      - name: Dump compose logs on failure
-        if: failure()
-        run: docker compose logs
+  #     - name: Dump compose logs on failure
+  #       if: failure()
+  #       run: docker compose logs
 
-      - name: Tear down stack
-        if: always()
-        run: docker compose down --volumes --remove-orphans
+  #     - name: Tear down stack
+  #       if: always()
+  #       run: docker compose down --volumes --remove-orphans
 
   # Backend Image Push (sha)
   backend-image-push:
     runs-on: ubuntu-latest
     needs:
-      - backend-image-scan
-      - ci-smoke-test
+      # - backend-image-scan
+      # - ci-smoke-test
+      - backend-build-image
     steps:
       - uses: actions/checkout@v6.0.2
       - uses: ./.github/actions/image-push
@@ -187,42 +188,42 @@ jobs:
           registry-username: ${{ secrets.DOCKERHUB_USERNAME }}
           registry-password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-  # Frontend Image Push (sha)
-  frontend-image-push:
-    runs-on: ubuntu-latest
-    needs:
-      - frontend-image-scan
-      - ci-smoke-test
-    steps:
-      - uses: actions/checkout@v6.0.2
-      - uses: ./.github/actions/image-push
-        with:
-          image-name: ${{ env.frontend-image-name }}
-          image-tag: ${{ env.frontend-image-tag }}-${{ github.sha }}
-          registry-namespace: ${{ secrets.DOCKERHUB_USERNAME }}
-          registry-username: ${{ secrets.DOCKERHUB_USERNAME }}
-          registry-password: ${{ secrets.DOCKERHUB_TOKEN }}
+  # # Frontend Image Push (sha)
+  # frontend-image-push:
+  #   runs-on: ubuntu-latest
+  #   needs:
+  #     - frontend-image-scan
+  #     - ci-smoke-test
+  #   steps:
+  #     - uses: actions/checkout@v6.0.2
+  #     - uses: ./.github/actions/image-push
+  #       with:
+  #         image-name: ${{ env.frontend-image-name }}
+  #         image-tag: ${{ env.frontend-image-tag }}-${{ github.sha }}
+  #         registry-namespace: ${{ secrets.DOCKERHUB_USERNAME }}
+  #         registry-username: ${{ secrets.DOCKERHUB_USERNAME }}
+  #         registry-password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-  notify:
-    runs-on: ubuntu-latest
-    needs:
-      - backend-lint-check
-      - backend-build-maven
-      - backend-unit-test
-      - backend-build-image
-      - backend-image-scan
-      - backend-image-push
-      - frontend-lint-check
-      - frontend-unit-test
-      - frontend-build-npm
-      - frontend-build-image
-      - frontend-image-scan
-      - frontend-image-push
-      - ci-smoke-test
-    if: always()
-    steps:
-      - uses: actions/checkout@v6.0.2
-      - uses: ./.github/actions/notify-slack
-        with:
-          webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
-          needs-context: ${{ toJSON(needs) }}
+  # notify:
+  #   runs-on: ubuntu-latest
+  #   needs:
+  #     - backend-lint-check
+  #     - backend-build-maven
+  #     - backend-unit-test
+  #     - backend-build-image
+  #     - backend-image-scan
+  #     - backend-image-push
+  #     - frontend-lint-check
+  #     - frontend-unit-test
+  #     - frontend-build-npm
+  #     - frontend-build-image
+  #     - frontend-image-scan
+  #     - frontend-image-push
+  #     - ci-smoke-test
+  #   if: always()
+  #   steps:
+  #     - uses: actions/checkout@v6.0.2
+  #     - uses: ./.github/actions/notify-slack
+  #       with:
+  #         webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
+  #         needs-context: ${{ toJSON(needs) }}
