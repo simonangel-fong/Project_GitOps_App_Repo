@@ -271,10 +271,10 @@ docker compose down -v
 
 
 cd backend/
-docker build -t simonangelfong/gitops-demo:backend .
-docker push simonangelfong/gitops-demo:backend
+docker build -t simonangelfong/gitops-demo-backend .
+docker push simonangelfong/gitops-demo-backend
 
 cd frontend/
-docker build -t simonangelfong/gitops-demo:frontend .
-docker push simonangelfong/gitops-demo:frontend
+docker build -t simonangelfong/gitops-demo-frontend .
+docker push simonangelfong/gitops-demo-frontend
 ```

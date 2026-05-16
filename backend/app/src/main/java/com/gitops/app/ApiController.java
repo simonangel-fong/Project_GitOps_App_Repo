@@ -13,7 +13,7 @@ public class ApiController {
     @Value("${APP_VERSION:0.1.0}")
     private String appVersion;
 
-    @GetMapping({"/app"})
+    @GetMapping({"/api"})
     public Map<String, Object> root() {
         Map<String, Object> response = new HashMap<>();
         response.put("app", "gitops");
@@ -21,7 +21,7 @@ public class ApiController {
         return response;
     }
 
-    @GetMapping("/health")
+    @GetMapping("/api/health")
     public String health() {
         return "OK";
     }

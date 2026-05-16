@@ -83,7 +83,7 @@
     - frontend-build-image
   - parallel
     - dependency-scan
-    - smoke-test
+    - smoke-test: ci-test/docker-compose.yaml
     - image-scan: use image built in preivous job
   - image-push(sha)
   - notify-slack [ always ]

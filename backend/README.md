@@ -190,10 +190,10 @@ Create a multi-stage `Dockerfile` at `backend/Dockerfile`:
 
 ```sh
 cd backend
-docker build -t simonangelfong/gitops-demo:backend-latest .
-docker run -d --name gitops-demo-backend -e APP_VERSION=1.2.3 -p 8080:8080 simonangelfong/gitops-demo:backend-latest
+docker build -t simonangelfong/gitops-demo-backend .
+docker run -d --name gitops-demo-backend -e APP_VERSION=1.2.3 -p 8080:8080 simonangelfong/gitops-demo-backend
 
-docker push simonangelfong/gitops-demo:backend-latest
+docker push simonangelfong/gitops-demo-backend
 
 curl http://localhost:8080/health
 # OK
@@ -229,16 +229,18 @@ cd backend/app
 # coding standards and style rules
 mvn checkstyle:check
 # Security Scanning
-mvn dependency-check:check 
+mvn org.owasp:dependency-check-maven:10.0.4:check
 # unit test
 mvn test
+
+docker build -t simonangelfong/gitops-demo-backend .
 # image-scan
-trivy image gitops-backend
+trivy image simonangelfong/gitops-demo-backend
 
 docker compose up -d --build
 docker compose down -v
 
 cd backend/
-docker build -t simonangelfong/gitops-demo:backend-latest .
-docker push simonangelfong/gitops-demo:backend-latest
+docker build -t simonangelfong/gitops-demo-backend .
+docker push simonangelfong/gitops-demo-backend
 ```

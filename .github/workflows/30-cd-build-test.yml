@@ -149,7 +149,7 @@ jobs:
         run: curl --fail --retry 5 --retry-delay 3 --retry-connrefused http://localhost:8000/
 
       - name: Curl backend via frontend proxy
-        run: curl --fail --retry 5 --retry-delay 3 --retry-connrefused http://localhost:8000/app/health
+        run: curl --fail --retry 5 --retry-delay 3 --retry-connrefused http://localhost:8000/api/health
 
       - name: Dump compose logs on failure
         if: failure()

@@ -13,7 +13,7 @@ server {
     add_header Referrer-Policy "strict-origin-when-cross-origin";
     add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline';";
 
-    location /app {
+    location /api {
         proxy_pass ${BACKEND_URL};
     }
 

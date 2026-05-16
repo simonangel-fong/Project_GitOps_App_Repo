@@ -25,14 +25,14 @@ class ApiControllerTest {
 
     @Test
     void health_returns200AndOK() throws Exception {
-        mockMvc.perform(get("/health"))
+        mockMvc.perform(get("/api/health"))
                 .andExpect(status().isOk())
                 .andExpect(content().string("OK"));
     }
 
     @Test
     void root_returns200AndJsonFields() throws Exception {
-        mockMvc.perform(get("/app"))
+        mockMvc.perform(get("/api"))
                 .andExpect(status().isOk())
                 .andExpect(content().contentTypeCompatibleWith("application/json"))
                 .andExpect(jsonPath("$.app").value("gitops"))

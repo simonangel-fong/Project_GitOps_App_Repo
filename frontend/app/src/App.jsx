@@ -5,7 +5,7 @@ function App() {
   const [version, setVersion] = useState('loading...')
 
   useEffect(() => {
-    fetch('/app')
+    fetch('/api')
       .then(res => {
         if (!res.ok) throw new Error(res.status)
         return res.json()
