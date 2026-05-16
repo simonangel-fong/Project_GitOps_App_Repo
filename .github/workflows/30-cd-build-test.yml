@@ -23,6 +23,7 @@ env:
   frontend-dockerfile-path: frontend
   frontend-image-name: gitops-demo-frontend
   frontend-image-tag: main
+  docker-compose-path: ci-test
 
 jobs:
   # Backend Lint Check
@@ -143,6 +144,7 @@ jobs:
         env:
           BACKEND_IMAGE: ${{ env.backend-image-name }}:${{ env.backend-image-tag }}-${{ github.sha }}
           FRONTEND_IMAGE: ${{ env.frontend-image-name }}:${{ env.frontend-image-tag }}-${{ github.sha }}
+        working-directory: ${{ env.docker-compose-path }}
         run: docker compose up -d --wait
 
       - name: Curl frontend root
