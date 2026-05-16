@@ -32,8 +32,12 @@
 - Trigger
   - push from non-main branchs + change at backend/ path
   - pull request to main branch + change at backend/ path
-- Key Jobs(//: parallel)
-  - backend-lint-check // backend-build-maven // backend-unit-test // backend-build-image
+- Key Jobs
+  - parallel
+    - backend-lint-check
+    - backend-build-maven
+    - backend-unit-test
+    - backend-build-image
   - notify-slack [ always ]
 - Note:
   - no scan for flexibility

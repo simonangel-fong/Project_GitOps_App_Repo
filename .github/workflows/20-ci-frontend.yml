@@ -8,8 +8,8 @@ on:
     paths:
       - frontend/**
   push:
-    branches:
-      - feature/*
+    branches-ignore:
+      - main
     paths:
       - frontend/**
 
@@ -21,24 +21,12 @@ permissions:
   contents: read
 
 jobs:
-  lint-check:
+  # Frontend Lint Check
+  frontend-lint-check:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6.0.2
-
-      - uses: actions/setup-node@v4.4.0
-        with:
-          node-version: "22"
-          cache: npm
-          cache-dependency-path: frontend/app/package-lock.json
-
-      - name: Install dependencies
-        working-directory: frontend/app
-        run: npm ci
-
-      - name: ESLint
-        working-directory: frontend/app
-        run: npm run lint
+      - uses: ./.github/actions/frontend-lint-check
 
   unit-test:
     runs-on: ubuntu-latest
@@ -81,7 +69,7 @@ jobs:
   notify:
     runs-on: ubuntu-latest
     needs:
-      - lint-check
+      - frontend-lint-check
       - unit-test
       - image-build-scan
     if: failure()

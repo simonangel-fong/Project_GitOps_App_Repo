@@ -1,0 +1,35 @@
+name: frontend-lint-check
+description: Run ESLint against the frontend app
+
+inputs:
+  node-version:
+    description: Node.js version
+    required: false
+    default: "22"
+  working-directory:
+    description: Directory containing package.json
+    required: false
+    default: frontend/app
+  lockfile-path:
+    description: Path to package-lock.json (for setup-node cache)
+    required: false
+    default: frontend/app/package-lock.json
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@v4.4.0
+      with:
+        node-version: ${{ inputs.node-version }}
+        cache: npm
+        cache-dependency-path: ${{ inputs.lockfile-path }}
+
+    - name: Install dependencies
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: npm ci
+
+    - name: ESLint
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: npm run lint
